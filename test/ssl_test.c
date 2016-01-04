@@ -11,6 +11,7 @@
 #include <arpa/inet.h>
 #include <openssl/ssl.h>
 #include <openssl/err.h>
+#include <sys/epoll.h>
 
 #include "ds_types.h"
 #include "ds_lib.h"
@@ -19,6 +20,13 @@
 #define DS_DEF_IP_ADDRESS       "127.0.0.1"
 #define DS_DEF_PORT             "7838"
 #define DS_SERVER_LISTEN_NUM    5
+#define DS_TEST_REQ             "Hello TLS!"
+#define DS_TEST_RESP            "TLS OK!"
+#define DS_TEST_EVENT_MAX_NUM   10
+#define DS_TEST_CMD_START       "start"
+#define DS_TEST_CMD_OK          "OK"
+#define DS_TEST_CMD_END         "end"
+#define DS_BUF_MAX_LEN          1000
 
 static const char *
 ds_program_version = "1.0.0";//PACKAGE_STRING;
@@ -26,7 +34,6 @@ ds_program_version = "1.0.0";//PACKAGE_STRING;
 static const struct option 
 ds_long_opts[] = {
 	{"help", 0, 0, 'H'},
-	{"server", 0, 0, 'S'},
 	{"openssl", 0, 0, 'O'},
 	{"address", 0, 0, 'a'},
 	{"port", 0, 0, 'p'},
@@ -41,20 +48,35 @@ ds_options[] = {
 	"--port         -p	Port for SSL communication\n",	
 	"--certificate  -c	certificate file\n",	
 	"--key          -k	private key file\n",	
-	"--server       -S	Server mode\n",	
 	"--openssl      -O	Use openssl lib\n",	
 	"--help         -H	Print help information\n",	
 };
 
-#define MAXBUF 1024
-
-int server_main(struct sockaddr_in *my_addr, char *cf, char *key)
+static void
+ds_add_epoll_event(int epfd, struct epoll_event *ev, int fd)
 {
-    int sockfd, new_fd;
-    socklen_t len;
-    struct sockaddr_in their_addr;
-    char buf[MAXBUF + 1];
-    SSL_CTX *ctx;
+    ev->data.fd = fd;
+    ev->events = EPOLLIN;
+    epoll_ctl(epfd, EPOLL_CTL_ADD, fd, ev);
+}
+
+int server_main(int pipefd, struct sockaddr_in *my_addr, char *cf, char *key)
+{
+    struct epoll_event  ev = {};
+    struct epoll_event  events[DS_TEST_EVENT_MAX_NUM] = {};
+    int                 sockfd = 0;
+    int                 efd = 0;
+    int                 new_fd = 0;
+    int                 epfd = 0;
+    int                 nfds = 0;
+    int                 i = 0;
+    socklen_t           len = 0;
+    ssize_t             rlen = 0;
+    ssize_t             wlen = 0;
+    struct sockaddr_in  their_addr = {};
+    char                buf[DS_BUF_MAX_LEN] = {};
+    SSL_CTX             *ctx = NULL;
+    SSL                 *ssl = NULL;
         
     /* SSL 库初始化 */
     SSL_library_init();
@@ -102,62 +124,96 @@ int server_main(struct sockaddr_in *my_addr, char *cf, char *key)
         exit(1);
     } else
         printf("begin listen\n");
-    while (1) {
-        SSL *ssl;
-        len = sizeof(struct sockaddr);
-        /* 等待客户端连上来 */
-        if ((new_fd =
-                    accept(sockfd, (struct sockaddr *) &their_addr,
-                        &len)) == -1) {
-            perror("accept");
-            exit(errno);
-        } else
-            printf("server: got connection from %s, port %d, socket %d\n",
-                    inet_ntoa(their_addr.sin_addr),
-                    ntohs(their_addr.sin_port), new_fd);
-        /* 基于 ctx 产生一个新的 SSL */
-        ssl = SSL_new(ctx);
-        /* 将连接用户的 socket 加入到 SSL */
-        SSL_set_fd(ssl, new_fd);
-        /* 建立 SSL 连接 */
-        if (SSL_accept(ssl) == -1) {
-            perror("accept");
-            close(new_fd);
 
-            break;
-        }
-        /* 开始处理每个新连接上的数据收发 */
-        bzero(buf, MAXBUF + 1);
-        strcpy(buf, "server->client");
-        /* 发消息给客户端 */
-        len = SSL_write(ssl, buf, strlen(buf));
-        if (len <= 0) {
-            printf
-                ("消息'%s'发送失败!错误代码是%d,错误信息是'%s'\n",
-                 buf, errno, strerror(errno));
-            goto finish;
-        } else
-            printf("消息'%s'发送成功,共发送了%d 个字节!\n",
-                    buf, len);
-        bzero(buf, MAXBUF + 1);
-        /* 接收客户端的消息 */
-        len = SSL_read(ssl, buf, MAXBUF);
-        if (len > 0)
-            printf("接收消息成功:'%s',共%d 个字节的数据\n",
-                    buf, len);
-        else
-            printf
-                ("消息接收失败!错误代码是%d,错误信息是'%s'\n",
-                 errno, strerror(errno));
-        /* 处理每个新连接上的数据收发结束 */
-finish:
-        /* 关闭 SSL 连接 */
-        SSL_shutdown(ssl);
-        /* 释放 SSL */
-        SSL_free(ssl);
-        /* 关闭 socket */
-        close(new_fd);
+    epfd = epoll_create(1);
+    if (epfd < 0) {
+        exit(1);
     }
+    ds_add_epoll_event(epfd, &ev, sockfd);
+    ds_add_epoll_event(pipefd, &ev, sockfd);
+
+    while (1) {
+        nfds = epoll_wait(epfd, events, DS_TEST_EVENT_MAX_NUM, -1);
+        for (i = 0; i < nfds; i++) {
+            if (events[i].events & EPOLLIN) {
+                if ((efd = events[i].data.fd) < 0) {
+                    continue;
+                }
+
+                /* Client有请求到达 */
+                if (efd == sockfd) {
+                    /* 等待客户端连上来 */
+                    if ((new_fd = accept(sockfd, (struct sockaddr *)&their_addr,
+                                    &len)) == -1) {
+                        perror("accept");
+                        exit(errno);
+                    } 
+                    /* 基于 ctx 产生一个新的 SSL */
+                    ssl = SSL_new(ctx);
+                    /* 将连接用户的 socket 加入到 SSL */
+                    SSL_set_fd(ssl, new_fd);
+                    /* 建立 SSL 连接 */
+                    if (SSL_accept(ssl) == -1) {
+                        perror("accept");
+                        close(new_fd);
+                        goto out;
+                    }
+                    /* 开始处理每个新连接上的数据收发 */
+                    bzero(buf, sizeof(buf));
+                    /* 接收客户端的消息 */
+                    len = SSL_read(ssl, buf, sizeof(buf));
+                    if (len > 0 && strcmp(buf, DS_TEST_REQ) == 0) {
+                        printf("Server接收消息成功:'%s',共%d 个字节的数据\n",
+                                buf, len);
+                    } else {
+                        printf("Server消息接收失败!错误代码是%d,错误信息是'%s'\n",
+                             errno, strerror(errno));
+                        goto finish;
+                    }
+                    /* 发消息给客户端 */
+                    len = SSL_write(ssl, DS_TEST_RESP, sizeof(DS_TEST_RESP));
+                    if (len <= 0) {
+                        printf("Server消息'%s'发送失败!错误信息是'%s'\n",
+                             buf, strerror(errno));
+                        goto finish;
+                    } 
+                    printf("Server消息'%s'发送成功,共发送了%d 个字节!\n",
+                            DS_TEST_RESP, len);
+
+                    /* 处理每个新连接上的数据收发结束 */
+finish:
+                    /* 关闭 SSL 连接 */
+                    SSL_shutdown(ssl);
+                    /* 释放 SSL */
+                    SSL_free(ssl);
+                    /* 关闭 socket */
+                    close(new_fd);
+                    ds_add_epoll_event(epfd, &ev, sockfd);
+                    continue;
+                }
+                if (efd == pipefd) {
+                    rlen = read(pipefd, buf, sizeof(buf));
+                    if (rlen < 0) {
+                        fprintf(stderr, "Read form pipe failed!\n");
+                        goto out;
+                    }
+                    wlen = write(pipefd, DS_TEST_CMD_OK, sizeof(DS_TEST_CMD_OK));
+                    if (wlen < sizeof(DS_TEST_CMD_OK)) {
+                        fprintf(stderr, "Write to pipe failed!\n");
+                        goto out;
+                    }
+                    if (strcmp(buf, DS_TEST_CMD_START) == 0) {
+                        fprintf(stdout, "Test start!\n");
+                        ds_add_epoll_event(epfd, &ev, sockfd);
+                    } else {
+                        goto out;
+                    }
+                }
+            }
+        }
+    }
+out:
+    close(epfd);
     /* 关闭监听的 socket */
     close(sockfd);
     /* 释放 CTX */
@@ -166,9 +222,9 @@ finish:
 }
 
 static int
-ds_server(struct sockaddr_in *addr, char *cf, char *key)
+ds_server(int pipefd, struct sockaddr_in *addr, char *cf, char *key)
 {
-    return server_main(addr, cf, key);
+    return server_main(pipefd, addr, cf, key);
 }
 
 
@@ -192,10 +248,11 @@ void ShowCerts(SSL * ssl)
 
 int client_main(struct sockaddr_in *dest)
 {
-    int sockfd, len;
-    char buffer[MAXBUF + 1];
-    SSL_CTX *ctx;
-    SSL *ssl;
+    int         sockfd = 0;
+    int         len = 0;
+    char        buffer[DS_BUF_MAX_LEN] = {};
+    SSL_CTX     *ctx = NULL;
+    SSL         *ssl = NULL;
 
     /* SSL 库初始化,参看 ssl-server.c 代码 */
     SSL_library_init();
@@ -204,7 +261,7 @@ int client_main(struct sockaddr_in *dest)
     ctx = SSL_CTX_new(TLSv1_2_client_method());
     if (ctx == NULL) {
         ERR_print_errors_fp(stdout);
-        exit(1);
+        return DS_ERROR;
     }
     /* 创建一个 socket 用于 tcp 通信 */
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -229,31 +286,26 @@ int client_main(struct sockaddr_in *dest)
         printf("Connected with %s encryption\n", SSL_get_cipher(ssl));
         ShowCerts(ssl);
     }
-    /* 接收对方发过来的消息,最多接收 MAXBUF 个字节 */
-    bzero(buffer, MAXBUF + 1);
-    /* 接收服务器来的消息 */
-    len = SSL_read(ssl, buffer, MAXBUF);
-    if (len > 0)
-        printf("接收消息成功:'%s',共%d 个字节的数据\n",
-                buffer, len);
-    else {
-        printf
-            ("消息接收失败!错误代码是%d,错误信息是'%s'\n",
-             errno, strerror(errno));
-        goto finish;
-    }
-    bzero(buffer, MAXBUF + 1);
-    strcpy(buffer, "from client->server");
     /* 发消息给服务器 */
-    len = SSL_write(ssl, buffer, strlen(buffer));
-    if (len < 0)
-        printf
-            ("消息'%s'发送失败!错误代码是%d,错误信息是'%s'\n",
+    len = SSL_write(ssl, DS_TEST_REQ, sizeof(DS_TEST_REQ));
+    if (len < 0) {
+        printf("Client消息'%s'发送失败!错误代码是%d,错误信息是'%s'\n",
              buffer, errno, strerror(errno));
-    else
-        printf("消息'%s'发送成功,共发送了%d 个字节!\n",
+    } else {
+        printf("Client消息'%s'发送成功,共发送了%d 个字节!\n",
+                DS_TEST_REQ, len);
+    }
+
+    /* 接收服务器来的消息 */
+    len = SSL_read(ssl, buffer, sizeof(buffer));
+    if (len > 0 && strcmp(buffer, DS_TEST_RESP) == 0) {
+        printf("Client接收消息成功:'%s',共%d 个字节的数据\n",
                 buffer, len);
-finish:
+    } else {
+        printf("Client消息接收失败!错误代码是%d,错误信息是'%s', len = %d\n",
+             errno, strerror(errno), len);
+    }
+
     /* 关闭连接 */
     SSL_shutdown(ssl);
     SSL_free(ssl);
@@ -263,9 +315,45 @@ finish:
 }
 
 static int
-ds_client(struct sockaddr_in *addr, char *cf)
+ds_client(int pipefd, struct sockaddr_in *addr, char *cf)
 {
-    return client_main(addr);
+    char                buf[DS_BUF_MAX_LEN] = {};
+    ssize_t             rlen = 0;
+    ssize_t             wlen = 0;
+    int                 ret = 0;
+
+    wlen = write(pipefd, DS_TEST_CMD_START, strlen(DS_TEST_CMD_START));
+    if (wlen < strlen(DS_TEST_CMD_START)) {
+        fprintf(stderr, "Write to pipefd failed(errno=%s)\n", strerror(errno));
+        return DS_ERROR;
+    }
+    rlen = read(pipefd, buf, sizeof(buf));
+    if (rlen < 0 || strcmp(DS_TEST_CMD_OK, buf) != 0) {
+        fprintf(stderr, "Read from pipefd failed(errno=%s)\n", strerror(errno));
+//        return DS_ERROR;
+    }
+    sleep(1);
+    ret = client_main(addr);
+    if (ret != DS_OK) {
+        close(pipefd);
+        return DS_ERROR;
+    }
+
+    wlen = write(pipefd, DS_TEST_CMD_START, strlen(DS_TEST_CMD_END));
+    if (wlen < strlen(DS_TEST_CMD_END)) {
+        fprintf(stderr, "Write to pipefd failed(errno=%s), wlen = %d\n",
+                strerror(errno), (int)wlen);
+        close(pipefd);
+        return DS_ERROR;
+    }
+
+    rlen = read(pipefd, buf, sizeof(buf));
+    close(pipefd);
+    if (rlen < 0 || strcmp(DS_TEST_CMD_OK, buf) != 0) {
+        fprintf(stderr, "Read from pipefd failed(errno=%s)\n", strerror(errno));
+        return DS_ERROR;
+    }
+    return DS_OK;
 }
 
 static void 
@@ -282,16 +370,18 @@ ds_help(void)
 }
 
 static const char *
-ds_optstring = "HSOa:p:c:k:";
+ds_optstring = "HOa:p:c:k:";
 
 int
 main(int argc, char **argv)  
 {
     int                 c = 0;
-    bool                client = DS_TRUE;
+    int                 fd[2] = {};
     struct sockaddr_in  addr = {
         .sin_family = AF_INET,
     };
+    pid_t               pid = 0;
+    ds_u16              pport = 0;
     char                *ip = DS_DEF_IP_ADDRESS;
     char                *port = DS_DEF_IP_ADDRESS;
     char                *cf = NULL;
@@ -303,10 +393,6 @@ main(int argc, char **argv)
             case 'H':
                 ds_help();
                 return DS_OK;
-
-            case 'S':
-                client = DS_FALSE;
-                break;
 
             case 'O':
                 return DS_OK;
@@ -334,19 +420,34 @@ main(int argc, char **argv)
     }
 
     if (cf == NULL) {
-        printf("Please input cf by -c!\n");
+        fprintf(stderr, "Please input cf by -c!\n");
         return -DS_ERROR;
-    }
-    addr.sin_port = htons(atoi(port));
-    addr.sin_addr.s_addr = inet_addr(ip);
-    if (client == DS_TRUE) {
-        return ds_client(&addr, cf);
     }
 
     if (key == NULL) {
-        printf("Please input key by -k!\n");
+        fprintf(stderr, "Please input key by -k!\n");
         return -DS_ERROR;
     }
 
-    return ds_server(&addr, cf, key);
+    pport = atoi(port);
+    addr.sin_port = htons(pport);
+    addr.sin_addr.s_addr = inet_addr(ip);
+    if (pipe(fd) < 0) {
+        fprintf(stderr, "Create pipe failed!\n");
+        return -DS_ERROR;
+    }
+
+    if ((pid = fork()) < 0) {
+        fprintf(stderr, "Fork failed!\n");
+        return -DS_ERROR;
+    }
+
+    if (pid > 0) {  /* Parent */
+        close(fd[0]);
+        return -ds_client(fd[1], &addr, cf);
+    }
+
+    /* Child */
+    close(fd[1]);
+    return -ds_server(fd[0], &addr, cf, key);
 }

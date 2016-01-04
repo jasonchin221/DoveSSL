@@ -101,7 +101,15 @@ if test "$LXML2" = "no"; then
     exit
 fi
 
-
+LPTHREAD=""
+AC_CHECK_LIB([pthread], [pthread_create], , LPTHREAD="no")
+if test "$LPTHREAD" = "no"; then
+    echo
+    echo "   ERROR! pthread library not found, go get it from"
+    echo "   or use the --with-pthread-* options, if you have it installed"
+    echo "   in unusual place"
+    exit
+fi
 
 AC_CONFIG_FILES([
 				 Makefile

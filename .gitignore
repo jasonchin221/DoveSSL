@@ -35,3 +35,4 @@ ltmain.sh
 m4/
 missing
 ssl_test
+config.h.in~
