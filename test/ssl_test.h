@@ -1,7 +1,7 @@
 #ifndef __SSL_TEST_H__
 #define __SSL_TEST_H__
 
-typedef struct _ds_proto_suite_t {
+typedef struct _dv_proto_suite_t {
     int     (*ps_library_init)(void);
     void    (*ps_add_all_algorithms)(void);
     void    (*ps_load_error_strings)(void);
@@ -19,6 +19,6 @@ typedef struct _ds_proto_suite_t {
     int     (*ps_shutdown)(void *s);
     void    (*ps_ssl_free)(void *s);
     void    (*ps_ctx_free)(void *ctx);
-} ds_proto_suite_t;
+} dv_proto_suite_t;
 
 #endif

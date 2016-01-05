@@ -13,59 +13,59 @@
 #include <openssl/err.h>
 #include <sys/epoll.h>
 
-#include "ds_types.h"
-#include "ds_lib.h"
-#include "ds_errno.h"
-#include "ds_ssl.h"
+#include "dv_types.h"
+#include "dv_lib.h"
+#include "dv_errno.h"
+#include "dv_ssl.h"
 #include "ssl_test.h"
 
-#define DS_DEF_IP_ADDRESS       "127.0.0.1"
-#define DS_DEF_PORT             "7838"
-#define DS_SERVER_LISTEN_NUM    5
-#define DS_TEST_REQ             "Hello TLS!"
-#define DS_TEST_RESP            "TLS OK!"
-#define DS_TEST_EVENT_MAX_NUM   10
-#define DS_TEST_CMD_START       "start"
-#define DS_TEST_CMD_OK          "OK"
-#define DS_TEST_CMD_END         "end"
-#define DS_BUF_MAX_LEN          1000
+#define DV_DEF_IP_ADDRESS       "127.0.0.1"
+#define DV_DEF_PORT             "7838"
+#define DV_SERVER_LISTEN_NUM    5
+#define DV_TEST_REQ             "Hello TLS!"
+#define DV_TEST_RESP            "TLS OK!"
+#define DV_TEST_EVENT_MAX_NUM   10
+#define DV_TEST_CMD_START       "start"
+#define DV_TEST_CMD_OK          "OK"
+#define DV_TEST_CMD_END         "end"
+#define DV_BUF_MAX_LEN          1000
 
-static void ds_openssl_add_all_algorighms(void);
-static void *ds_openssl_ctx_client_new(void);
-static void *ds_openssl_ctx_server_new(void);
-static int ds_openssl_ctx_use_certificate_file(void *ctx, const char *file);
-static int ds_openssl_ctx_use_privateKey_file(void *ctx, const char *file);
-static int ds_openssl_ctx_check_private_key(const void *ctx);
-static void *ds_openssl_new(void *ctx);
-static int ds_openssl_set_fd(void *s, int fd);
-static int ds_openssl_accept(void *s);
-static int ds_openssl_connect(void *s);
-static int ds_openssl_read(void *s, void *buf, int num);
-static int ds_openssl_write(void *s, const void *buf, int num);
-static int ds_openssl_shutdown(void *s);
-static void ds_openssl_free(void *s);
-static void ds_openssl_ctx_free(void *ctx);
+static void dv_openssl_add_all_algorighms(void);
+static void *dv_openssl_ctx_client_new(void);
+static void *dv_openssl_ctx_server_new(void);
+static int dv_openssl_ctx_use_certificate_file(void *ctx, const char *file);
+static int dv_openssl_ctx_use_privateKey_file(void *ctx, const char *file);
+static int dv_openssl_ctx_check_private_key(const void *ctx);
+static void *dv_openssl_new(void *ctx);
+static int dv_openssl_set_fd(void *s, int fd);
+static int dv_openssl_accept(void *s);
+static int dv_openssl_connect(void *s);
+static int dv_openssl_read(void *s, void *buf, int num);
+static int dv_openssl_write(void *s, const void *buf, int num);
+static int dv_openssl_shutdown(void *s);
+static void dv_openssl_free(void *s);
+static void dv_openssl_ctx_free(void *ctx);
 
-static void *ds_dovessl_ctx_client_new(void);
-static void *ds_dovessl_ctx_server_new(void);
-static int ds_dovessl_ctx_use_certificate_file(void *ctx, const char *file);
-static int ds_dovessl_ctx_use_privateKey_file(void *ctx, const char *file);
-static int ds_dovessl_ctx_check_private_key(const void *ctx);
-static void *ds_dovessl_new(void *ctx);
-static int ds_dovessl_set_fd(void *s, int fd);
-static int ds_dovessl_accept(void *s);
-static int ds_dovessl_connect(void *s);
-static int ds_dovessl_read(void *s, void *buf, int num);
-static int ds_dovessl_write(void *s, const void *buf, int num);
-static int ds_dovessl_shutdown(void *s);
-static void ds_dovessl_free(void *s);
-static void ds_dovessl_ctx_free(void *ctx);
+static void *dv_dovessl_ctx_client_new(void);
+static void *dv_dovessl_ctx_server_new(void);
+static int dv_dovessl_ctx_use_certificate_file(void *ctx, const char *file);
+static int dv_dovessl_ctx_use_privateKey_file(void *ctx, const char *file);
+static int dv_dovessl_ctx_check_private_key(const void *ctx);
+static void *dv_dovessl_new(void *ctx);
+static int dv_dovessl_set_fd(void *s, int fd);
+static int dv_dovessl_accept(void *s);
+static int dv_dovessl_connect(void *s);
+static int dv_dovessl_read(void *s, void *buf, int num);
+static int dv_dovessl_write(void *s, const void *buf, int num);
+static int dv_dovessl_shutdown(void *s);
+static void dv_dovessl_free(void *s);
+static void dv_dovessl_ctx_free(void *ctx);
 
 static const char *
-ds_program_version = "1.0.0";//PACKAGE_STRING;
+dv_program_version = "1.0.0";//PACKAGE_STRING;
 
 static const struct option 
-ds_long_opts[] = {
+dv_long_opts[] = {
 	{"help", 0, 0, 'H'},
 	{"client", 0, 0, 'C'},
 	{"server", 0, 0, 'S'},
@@ -77,7 +77,7 @@ ds_long_opts[] = {
 };
 
 static const char *
-ds_options[] = {
+dv_options[] = {
 	"--address      -a	IP address for SSL communication\n",	
 	"--port         -p	Port for SSL communication\n",	
 	"--certificate  -c	certificate file\n",	
@@ -87,222 +87,222 @@ ds_options[] = {
 	"--help         -H	Print help information\n",	
 };
 
-static const ds_proto_suite_t ds_openssl_suite = {
+static const dv_proto_suite_t dv_openssl_suite = {
     .ps_library_init = SSL_library_init,
-    .ps_add_all_algorithms = ds_openssl_add_all_algorighms,
+    .ps_add_all_algorithms = dv_openssl_add_all_algorighms,
     .ps_load_error_strings = SSL_load_error_strings,
-    .ps_ctx_client_new = ds_openssl_ctx_client_new,
-    .ps_ctx_server_new = ds_openssl_ctx_server_new,
-    .ps_ctx_use_certificate_file = ds_openssl_ctx_use_certificate_file,
-    .ps_ctx_use_privateKey_file = ds_openssl_ctx_use_privateKey_file,
-    .ps_ctx_check_private_key = ds_openssl_ctx_check_private_key,
-    .ps_ssl_new = ds_openssl_new,
-    .ps_set_fd = ds_openssl_set_fd,
-    .ps_accept = ds_openssl_accept,
-    .ps_connect = ds_openssl_connect,
-    .ps_read = ds_openssl_read,
-    .ps_write = ds_openssl_write,
-    .ps_shutdown = ds_openssl_shutdown,
-    .ps_ssl_free = ds_openssl_free,
-    .ps_ctx_free = ds_openssl_ctx_free,
+    .ps_ctx_client_new = dv_openssl_ctx_client_new,
+    .ps_ctx_server_new = dv_openssl_ctx_server_new,
+    .ps_ctx_use_certificate_file = dv_openssl_ctx_use_certificate_file,
+    .ps_ctx_use_privateKey_file = dv_openssl_ctx_use_privateKey_file,
+    .ps_ctx_check_private_key = dv_openssl_ctx_check_private_key,
+    .ps_ssl_new = dv_openssl_new,
+    .ps_set_fd = dv_openssl_set_fd,
+    .ps_accept = dv_openssl_accept,
+    .ps_connect = dv_openssl_connect,
+    .ps_read = dv_openssl_read,
+    .ps_write = dv_openssl_write,
+    .ps_shutdown = dv_openssl_shutdown,
+    .ps_ssl_free = dv_openssl_free,
+    .ps_ctx_free = dv_openssl_ctx_free,
 };
 
-static const ds_proto_suite_t ds_dovessl_suite = {
-    .ps_library_init = ds_library_init,
-    .ps_add_all_algorithms = ds_add_all_algorighms,
-    .ps_load_error_strings = ds_load_error_strings,
-    .ps_ctx_client_new = ds_dovessl_ctx_client_new,
-    .ps_ctx_server_new = ds_dovessl_ctx_server_new,
-    .ps_ctx_use_certificate_file = ds_dovessl_ctx_use_certificate_file,
-    .ps_ctx_use_privateKey_file = ds_dovessl_ctx_use_privateKey_file,
-    .ps_ctx_check_private_key = ds_dovessl_ctx_check_private_key,
-    .ps_ssl_new = ds_dovessl_new,
-    .ps_set_fd = ds_dovessl_set_fd,
-    .ps_accept = ds_dovessl_accept,
-    .ps_connect = ds_dovessl_connect,
-    .ps_read = ds_dovessl_read,
-    .ps_write = ds_dovessl_write,
-    .ps_shutdown = ds_dovessl_shutdown,
-    .ps_ssl_free = ds_dovessl_free,
-    .ps_ctx_free = ds_dovessl_ctx_free,
+static const dv_proto_suite_t dv_dovessl_suite = {
+    .ps_library_init = dv_library_init,
+    .ps_add_all_algorithms = dv_add_all_algorighms,
+    .ps_load_error_strings = dv_load_error_strings,
+    .ps_ctx_client_new = dv_dovessl_ctx_client_new,
+    .ps_ctx_server_new = dv_dovessl_ctx_server_new,
+    .ps_ctx_use_certificate_file = dv_dovessl_ctx_use_certificate_file,
+    .ps_ctx_use_privateKey_file = dv_dovessl_ctx_use_privateKey_file,
+    .ps_ctx_check_private_key = dv_dovessl_ctx_check_private_key,
+    .ps_ssl_new = dv_dovessl_new,
+    .ps_set_fd = dv_dovessl_set_fd,
+    .ps_accept = dv_dovessl_accept,
+    .ps_connect = dv_dovessl_connect,
+    .ps_read = dv_dovessl_read,
+    .ps_write = dv_dovessl_write,
+    .ps_shutdown = dv_dovessl_shutdown,
+    .ps_ssl_free = dv_dovessl_free,
+    .ps_ctx_free = dv_dovessl_ctx_free,
 };
 
 /* OpenSSL */
 static void
-ds_openssl_add_all_algorighms(void)
+dv_openssl_add_all_algorighms(void)
 {
     OpenSSL_add_all_algorithms();
 }
 
 static void *
-ds_openssl_ctx_client_new(void)
+dv_openssl_ctx_client_new(void)
 {
     return SSL_CTX_new(TLSv1_2_client_method());
 }
 
 static void *
-ds_openssl_ctx_server_new(void)
+dv_openssl_ctx_server_new(void)
 {
     return SSL_CTX_new(TLSv1_2_server_method());
 }
 
 static int 
-ds_openssl_ctx_use_certificate_file(void *ctx, const char *file)
+dv_openssl_ctx_use_certificate_file(void *ctx, const char *file)
 {
     return SSL_CTX_use_certificate_file(ctx, file, SSL_FILETYPE_PEM);
 }
 
 static int
-ds_openssl_ctx_use_privateKey_file(void *ctx, const char *file)
+dv_openssl_ctx_use_privateKey_file(void *ctx, const char *file)
 {
     return SSL_CTX_use_PrivateKey_file(ctx, file, SSL_FILETYPE_PEM);
 }
 
 static int
-ds_openssl_ctx_check_private_key(const void *ctx)
+dv_openssl_ctx_check_private_key(const void *ctx)
 {
     return SSL_CTX_check_private_key(ctx);
 }
 
-static void *ds_openssl_new(void *ctx)
+static void *dv_openssl_new(void *ctx)
 {
     return SSL_new(ctx);
 }
 
 static int
-ds_openssl_set_fd(void *s, int fd)
+dv_openssl_set_fd(void *s, int fd)
 {
     return SSL_set_fd(s, fd);
 }
 
 static int
-ds_openssl_accept(void *s)
+dv_openssl_accept(void *s)
 {
     return SSL_accept(s);
 }
 
 static int
-ds_openssl_connect(void *s)
+dv_openssl_connect(void *s)
 {
     return SSL_connect(s);
 }
 
 static int
-ds_openssl_read(void *s, void *buf, int num)
+dv_openssl_read(void *s, void *buf, int num)
 {
     return SSL_read(s, buf, num);
 }
 
 static int
-ds_openssl_write(void *s, const void *buf, int num)
+dv_openssl_write(void *s, const void *buf, int num)
 {
     return SSL_write(s, buf, num);
 }
 
 static int
-ds_openssl_shutdown(void *s)
+dv_openssl_shutdown(void *s)
 {
     return SSL_shutdown(s);
 }
 
 static void
-ds_openssl_free(void *s)
+dv_openssl_free(void *s)
 {
     SSL_free(s);
 }
 
 static void
-ds_openssl_ctx_free(void *ctx)
+dv_openssl_ctx_free(void *ctx)
 {
     SSL_CTX_free(ctx);
 }
 
 /* DoveSSL */
 static void *
-ds_dovessl_ctx_client_new(void)
+dv_dovessl_ctx_client_new(void)
 {
     return SSL_CTX_new(TLSv1_2_client_method());
 }
 
 static void *
-ds_dovessl_ctx_server_new(void)
+dv_dovessl_ctx_server_new(void)
 {
     return SSL_CTX_new(TLSv1_2_server_method());
 }
 
 static int 
-ds_dovessl_ctx_use_certificate_file(void *ctx, const char *file)
+dv_dovessl_ctx_use_certificate_file(void *ctx, const char *file)
 {
     return SSL_CTX_use_certificate_file(ctx, file, SSL_FILETYPE_PEM);
 }
 
 static int
-ds_dovessl_ctx_use_privateKey_file(void *ctx, const char *file)
+dv_dovessl_ctx_use_privateKey_file(void *ctx, const char *file)
 {
     return SSL_CTX_use_PrivateKey_file(ctx, file, SSL_FILETYPE_PEM);
 }
 
 static int
-ds_dovessl_ctx_check_private_key(const void *ctx)
+dv_dovessl_ctx_check_private_key(const void *ctx)
 {
     return SSL_CTX_check_private_key(ctx);
 }
 
-static void *ds_dovessl_new(void *ctx)
+static void *dv_dovessl_new(void *ctx)
 {
     return SSL_new(ctx);
 }
 
 static int
-ds_dovessl_set_fd(void *s, int fd)
+dv_dovessl_set_fd(void *s, int fd)
 {
     return SSL_set_fd(s, fd);
 }
 
 static int
-ds_dovessl_accept(void *s)
+dv_dovessl_accept(void *s)
 {
     return SSL_accept(s);
 }
 
 static int
-ds_dovessl_connect(void *s)
+dv_dovessl_connect(void *s)
 {
     return SSL_connect(s);
 }
 
 static int
-ds_dovessl_read(void *s, void *buf, int num)
+dv_dovessl_read(void *s, void *buf, int num)
 {
     return SSL_read(s, buf, num);
 }
 
 static int
-ds_dovessl_write(void *s, const void *buf, int num)
+dv_dovessl_write(void *s, const void *buf, int num)
 {
     return SSL_write(s, buf, num);
 }
 
 static int
-ds_dovessl_shutdown(void *s)
+dv_dovessl_shutdown(void *s)
 {
     return SSL_shutdown(s);
 }
 
 static void
-ds_dovessl_free(void *s)
+dv_dovessl_free(void *s)
 {
     SSL_free(s);
 }
 
 static void
-ds_dovessl_ctx_free(void *ctx)
+dv_dovessl_ctx_free(void *ctx)
 {
     SSL_CTX_free(ctx);
 }
 
 static void
-ds_add_epoll_event(int epfd, struct epoll_event *ev, int fd)
+dv_add_epoll_event(int epfd, struct epoll_event *ev, int fd)
 {
     ev->data.fd = fd;
     ev->events = EPOLLIN;
@@ -310,11 +310,11 @@ ds_add_epoll_event(int epfd, struct epoll_event *ev, int fd)
 }
 
 static int
-ds_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
-        char *key, const ds_proto_suite_t *suite)
+dv_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
+        char *key, const dv_proto_suite_t *suite)
 {
     struct epoll_event  ev = {};
-    struct epoll_event  events[DS_TEST_EVENT_MAX_NUM] = {};
+    struct epoll_event  events[DV_TEST_EVENT_MAX_NUM] = {};
     int                 sockfd = 0;
     int                 efd = 0;
     int                 new_fd = 0;
@@ -325,7 +325,7 @@ ds_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
     ssize_t             rlen = 0;
     ssize_t             wlen = 0;
     struct sockaddr_in  their_addr = {};
-    char                buf[DS_BUF_MAX_LEN] = {};
+    char                buf[DV_BUF_MAX_LEN] = {};
     void                *ctx = NULL;
     void                *ssl = NULL;
         
@@ -367,7 +367,7 @@ ds_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
         exit(1);
     }
     
-    if (listen(sockfd, DS_SERVER_LISTEN_NUM) == -1) {
+    if (listen(sockfd, DV_SERVER_LISTEN_NUM) == -1) {
         perror("listen");
         exit(1);
     }
@@ -376,11 +376,11 @@ ds_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
     if (epfd < 0) {
         exit(1);
     }
-    ds_add_epoll_event(epfd, &ev, pipefd);
-    ds_add_epoll_event(epfd, &ev, sockfd);
+    dv_add_epoll_event(epfd, &ev, pipefd);
+    dv_add_epoll_event(epfd, &ev, sockfd);
 
     while (1) {
-        nfds = epoll_wait(epfd, events, DS_TEST_EVENT_MAX_NUM, -1);
+        nfds = epoll_wait(epfd, events, DV_TEST_EVENT_MAX_NUM, -1);
         for (i = 0; i < nfds; i++) {
             if (events[i].events & EPOLLIN) {
                 if ((efd = events[i].data.fd) < 0) {
@@ -409,7 +409,7 @@ ds_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
                     bzero(buf, sizeof(buf));
                     /* 接收客户端的消息 */
                     len = suite->ps_read(ssl, buf, sizeof(buf));
-                    if (len > 0 && strcmp(buf, DS_TEST_REQ) == 0) {
+                    if (len > 0 && strcmp(buf, DV_TEST_REQ) == 0) {
                         printf("Server接收消息成功:'%s',共%d 个字节的数据\n",
                                 buf, len);
                     } else {
@@ -418,14 +418,14 @@ ds_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
                         goto finish;
                     }
                     /* 发消息给客户端 */
-                    len = suite->ps_write(ssl, DS_TEST_RESP, sizeof(DS_TEST_RESP));
+                    len = suite->ps_write(ssl, DV_TEST_RESP, sizeof(DV_TEST_RESP));
                     if (len <= 0) {
                         printf("Server消息'%s'发送失败!错误信息是'%s'\n",
                              buf, strerror(errno));
                         goto finish;
                     } 
                     printf("Server消息'%s'发送成功,共发送了%d 个字节!\n",
-                            DS_TEST_RESP, len);
+                            DV_TEST_RESP, len);
 
                     /* 处理每个新连接上的数据收发结束 */
 finish:
@@ -435,7 +435,7 @@ finish:
                     suite->ps_ssl_free(ssl);
                     /* 关闭 socket */
                     close(new_fd);
-                    ds_add_epoll_event(epfd, &ev, sockfd);
+                    dv_add_epoll_event(epfd, &ev, sockfd);
                     continue;
                 }
                 if (efd == pipefd) {
@@ -444,14 +444,14 @@ finish:
                         fprintf(stderr, "Read form pipe failed!\n");
                         goto out;
                     }
-                    wlen = write(pipefd, DS_TEST_CMD_OK, sizeof(DS_TEST_CMD_OK));
-                    if (wlen < sizeof(DS_TEST_CMD_OK)) {
+                    wlen = write(pipefd, DV_TEST_CMD_OK, sizeof(DV_TEST_CMD_OK));
+                    if (wlen < sizeof(DV_TEST_CMD_OK)) {
                         fprintf(stderr, "Write to pipe failed!\n");
                         goto out;
                     }
-                    if (strcmp(buf, DS_TEST_CMD_START) == 0) {
+                    if (strcmp(buf, DV_TEST_CMD_START) == 0) {
                         fprintf(stdout, "Test start!\n");
-                        ds_add_epoll_event(epfd, &ev, sockfd);
+                        dv_add_epoll_event(epfd, &ev, sockfd);
                     } else {
                         goto out;
                     }
@@ -469,10 +469,10 @@ out:
 }
 
 static int
-ds_server(int pipefd, struct sockaddr_in *addr, char *cf,
-        char *key, const ds_proto_suite_t *suite)
+dv_server(int pipefd, struct sockaddr_in *addr, char *cf,
+        char *key, const dv_proto_suite_t *suite)
 {
-    return ds_server_main(pipefd, addr, cf, key, suite);
+    return dv_server_main(pipefd, addr, cf, key, suite);
 }
 
 #if 0
@@ -496,12 +496,12 @@ void ShowCerts(SSL * ssl)
 #endif
 
 static int 
-ds_client_main(struct sockaddr_in *dest, char *cf, char *key,
-        const ds_proto_suite_t *suite)
+dv_client_main(struct sockaddr_in *dest, char *cf, char *key,
+        const dv_proto_suite_t *suite)
 {
     int         sockfd = 0;
     int         len = 0;
-    char        buffer[DS_BUF_MAX_LEN] = {};
+    char        buffer[DV_BUF_MAX_LEN] = {};
     SSL_CTX     *ctx = NULL;
     SSL         *ssl = NULL;
 
@@ -511,7 +511,7 @@ ds_client_main(struct sockaddr_in *dest, char *cf, char *key,
     ctx = suite->ps_ctx_client_new();
     if (ctx == NULL) {
         ERR_print_errors_fp(stdout);
-        return DS_ERROR;
+        return DV_ERROR;
     }
     /* 创建一个 socket 用于 tcp 通信 */
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -537,18 +537,18 @@ ds_client_main(struct sockaddr_in *dest, char *cf, char *key,
         //ShowCerts(ssl);
     }
     /* 发消息给服务器 */
-    len = suite->ps_write(ssl, DS_TEST_REQ, sizeof(DS_TEST_REQ));
+    len = suite->ps_write(ssl, DV_TEST_REQ, sizeof(DV_TEST_REQ));
     if (len < 0) {
         printf("Client消息'%s'发送失败!错误代码是%d,错误信息是'%s'\n",
              buffer, errno, strerror(errno));
     } else {
         printf("Client消息'%s'发送成功,共发送了%d 个字节!\n",
-                DS_TEST_REQ, len);
+                DV_TEST_REQ, len);
     }
 
     /* 接收服务器来的消息 */
     len = suite->ps_read(ssl, buffer, sizeof(buffer));
-    if (len > 0 && strcmp(buffer, DS_TEST_RESP) == 0) {
+    if (len > 0 && strcmp(buffer, DV_TEST_RESP) == 0) {
         printf("Client接收消息成功:'%s',共%d 个字节的数据\n",
                 buffer, len);
     } else {
@@ -565,62 +565,62 @@ ds_client_main(struct sockaddr_in *dest, char *cf, char *key,
 }
 
 static int
-ds_client(int pipefd, struct sockaddr_in *addr, char *cf, 
-        char *key, const ds_proto_suite_t *suite)
+dv_client(int pipefd, struct sockaddr_in *addr, char *cf, 
+        char *key, const dv_proto_suite_t *suite)
 {
-    char                buf[DS_BUF_MAX_LEN] = {};
+    char                buf[DV_BUF_MAX_LEN] = {};
     ssize_t             rlen = 0;
     ssize_t             wlen = 0;
     int                 ret = 0;
 
-    wlen = write(pipefd, DS_TEST_CMD_START, strlen(DS_TEST_CMD_START));
-    if (wlen < strlen(DS_TEST_CMD_START)) {
+    wlen = write(pipefd, DV_TEST_CMD_START, strlen(DV_TEST_CMD_START));
+    if (wlen < strlen(DV_TEST_CMD_START)) {
         fprintf(stderr, "Write to pipefd failed(errno=%s)\n", strerror(errno));
-        return DS_ERROR;
+        return DV_ERROR;
     }
     rlen = read(pipefd, buf, sizeof(buf));
-    if (rlen < 0 || strcmp(DS_TEST_CMD_OK, buf) != 0) {
+    if (rlen < 0 || strcmp(DV_TEST_CMD_OK, buf) != 0) {
         fprintf(stderr, "Read from pipefd failed(errno=%s)\n", strerror(errno));
-        return DS_ERROR;
+        return DV_ERROR;
     }
-    ret = ds_client_main(addr, cf, key, suite);
-    if (ret != DS_OK) {
+    ret = dv_client_main(addr, cf, key, suite);
+    if (ret != DV_OK) {
         close(pipefd);
-        return DS_ERROR;
+        return DV_ERROR;
     }
 
-    wlen = write(pipefd, DS_TEST_CMD_START, strlen(DS_TEST_CMD_END));
-    if (wlen < strlen(DS_TEST_CMD_END)) {
+    wlen = write(pipefd, DV_TEST_CMD_START, strlen(DV_TEST_CMD_END));
+    if (wlen < strlen(DV_TEST_CMD_END)) {
         fprintf(stderr, "Write to pipefd failed(errno=%s), wlen = %d\n",
                 strerror(errno), (int)wlen);
         close(pipefd);
-        return DS_ERROR;
+        return DV_ERROR;
     }
 
     rlen = read(pipefd, buf, sizeof(buf));
     close(pipefd);
-    if (rlen < 0 || strcmp(DS_TEST_CMD_OK, buf) != 0) {
+    if (rlen < 0 || strcmp(DV_TEST_CMD_OK, buf) != 0) {
         fprintf(stderr, "Read from pipefd failed(errno=%s)\n", strerror(errno));
-        return DS_ERROR;
+        return DV_ERROR;
     }
-    return DS_OK;
+    return DV_OK;
 }
 
 static void 
-ds_help(void)
+dv_help(void)
 {
 	int     index;
 
-	fprintf(stdout, "Version: %s\n", ds_program_version);
+	fprintf(stdout, "Version: %s\n", dv_program_version);
 
 	fprintf(stdout, "\nOptions:\n");
-	for(index = 0; index < DS_ARRAY_SIZE(ds_options); index++) {
-		fprintf(stdout, "  %s", ds_options[index]);
+	for(index = 0; index < DV_ARRAY_SIZE(dv_options); index++) {
+		fprintf(stdout, "  %s", dv_options[index]);
 	}
 }
 
 static const char *
-ds_optstring = "HCSa:p:c:k:";
+dv_optstring = "HCSa:p:c:k:";
 
 int
 main(int argc, char **argv)  
@@ -631,27 +631,27 @@ main(int argc, char **argv)
         .sin_family = AF_INET,
     };
     pid_t                   pid = 0;
-    ds_u16                  pport = 0;
-    const ds_proto_suite_t  *client_suite = &ds_dovessl_suite;
-    const ds_proto_suite_t  *server_suite = &ds_dovessl_suite;
-    char                    *ip = DS_DEF_IP_ADDRESS;
-    char                    *port = DS_DEF_IP_ADDRESS;
+    dv_u16                  pport = 0;
+    const dv_proto_suite_t  *client_suite = &dv_dovessl_suite;
+    const dv_proto_suite_t  *server_suite = &dv_dovessl_suite;
+    char                    *ip = DV_DEF_IP_ADDRESS;
+    char                    *port = DV_DEF_IP_ADDRESS;
     char                    *cf = NULL;
     char                    *key = NULL;
 
     while((c = getopt_long(argc, argv, 
-                    ds_optstring,  ds_long_opts, NULL)) != -1) {
+                    dv_optstring,  dv_long_opts, NULL)) != -1) {
         switch(c) {
             case 'H':
-                ds_help();
-                return DS_OK;
+                dv_help();
+                return DV_OK;
 
             case 'C':
-                client_suite = &ds_openssl_suite;
+                client_suite = &dv_openssl_suite;
                 break;
 
             case 'S':
-                server_suite = &ds_openssl_suite;
+                server_suite = &dv_openssl_suite;
                 break;
 
             case 'a':
@@ -671,19 +671,19 @@ main(int argc, char **argv)
                 break;
 
             default:
-                ds_help();
-                return -DS_ERROR;
+                dv_help();
+                return -DV_ERROR;
         }
     }
 
     if (cf == NULL) {
         fprintf(stderr, "Please input cf by -c!\n");
-        return -DS_ERROR;
+        return -DV_ERROR;
     }
 
     if (key == NULL) {
         fprintf(stderr, "Please input key by -k!\n");
-        return -DS_ERROR;
+        return -DV_ERROR;
     }
 
     pport = atoi(port);
@@ -692,20 +692,20 @@ main(int argc, char **argv)
     if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd) < 0) {
         fprintf(stderr, "Create socketpair failed(errn=%s)!\n",
                 strerror(errno));
-        return -DS_ERROR;
+        return -DV_ERROR;
     }
 
     if ((pid = fork()) < 0) {
         fprintf(stderr, "Fork failed!\n");
-        return -DS_ERROR;
+        return -DV_ERROR;
     }
 
     if (pid > 0) {  /* Parent */
         close(fd[0]);
-        return -ds_client(fd[1], &addr, cf, key, client_suite);
+        return -dv_client(fd[1], &addr, cf, key, client_suite);
     }
 
     /* Child */
     close(fd[1]);
-    return -ds_server(fd[0], &addr, cf, key, server_suite);
+    return -dv_server(fd[0], &addr, cf, key, server_suite);
 }

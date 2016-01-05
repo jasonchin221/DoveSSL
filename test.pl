@@ -25,19 +25,19 @@ my $cmd_str;
 my @testcase = (
     {
         $cmd_param => "-c $ca -k $key -p $port",
-        $test_info => "DoveSSL--->DoveSSL OK!",
+        $test_info => "DoveSSL--->DoveSSL",
     },
-    {
-        $cmd_param => "-c $ca -k $key -p $port -C",
-        $test_info => "OpenSSL--->DoveSSL OK!",
-    },
-    {
-        $cmd_param => "-c $ca -k $key -p $port -S",
-        $test_info => "DoveSSL--->OpenSSL OK!",
-    },
+#    {
+#        $cmd_param => "-c $ca -k $key -p $port -C",
+#        $test_info => "OpenSSL--->DoveSSL",
+#    },
+#    {
+#        $cmd_param => "-c $ca -k $key -p $port -S",
+#        $test_info => "DoveSSL--->OpenSSL",
+#    },
     {
         $cmd_param => "-c $ca -k $key -p $port -C -S",
-        $test_info => "OpenSSL--->OpenSSL OK!",
+        $test_info => "OpenSSL--->OpenSSL",
     },
 );
 
