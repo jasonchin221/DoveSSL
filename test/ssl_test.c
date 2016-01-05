@@ -129,8 +129,8 @@ int server_main(int pipefd, struct sockaddr_in *my_addr, char *cf, char *key)
     if (epfd < 0) {
         exit(1);
     }
+    ds_add_epoll_event(epfd, &ev, pipefd);
     ds_add_epoll_event(epfd, &ev, sockfd);
-    ds_add_epoll_event(pipefd, &ev, sockfd);
 
     while (1) {
         nfds = epoll_wait(epfd, events, DS_TEST_EVENT_MAX_NUM, -1);
@@ -330,9 +330,8 @@ ds_client(int pipefd, struct sockaddr_in *addr, char *cf)
     rlen = read(pipefd, buf, sizeof(buf));
     if (rlen < 0 || strcmp(DS_TEST_CMD_OK, buf) != 0) {
         fprintf(stderr, "Read from pipefd failed(errno=%s)\n", strerror(errno));
-//        return DS_ERROR;
+        return DS_ERROR;
     }
-    sleep(1);
     ret = client_main(addr);
     if (ret != DS_OK) {
         close(pipefd);
@@ -432,8 +431,9 @@ main(int argc, char **argv)
     pport = atoi(port);
     addr.sin_port = htons(pport);
     addr.sin_addr.s_addr = inet_addr(ip);
-    if (pipe(fd) < 0) {
-        fprintf(stderr, "Create pipe failed!\n");
+    if (socketpair(AF_UNIX, SOCK_STREAM, 0, fd) < 0) {
+        fprintf(stderr, "Create socketpair failed(errn=%s)!\n",
+                strerror(errno));
         return -DS_ERROR;
     }
 
