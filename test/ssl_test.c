@@ -17,6 +17,7 @@
 #include "dv_lib.h"
 #include "dv_errno.h"
 #include "dv_ssl.h"
+#include "dv_tls.h"
 #include "ssl_test.h"
 
 #define DV_DEF_IP_ADDRESS       "127.0.0.1"
@@ -221,84 +222,85 @@ dv_openssl_ctx_free(void *ctx)
 static void *
 dv_dovessl_ctx_client_new(void)
 {
-    return SSL_CTX_new(TLSv1_2_client_method());
+    return dv_ssl_ctx_new(dv_tls_v1_2_client_method());
 }
 
 static void *
 dv_dovessl_ctx_server_new(void)
 {
-    return SSL_CTX_new(TLSv1_2_server_method());
+    return dv_ssl_ctx_new(dv_tls_v1_2_server_method());
 }
 
 static int 
 dv_dovessl_ctx_use_certificate_file(void *ctx, const char *file)
 {
-    return SSL_CTX_use_certificate_file(ctx, file, SSL_FILETYPE_PEM);
+    return dv_ssl_ctx_use_certificate_file(ctx, file, SSL_FILETYPE_PEM);
 }
 
 static int
 dv_dovessl_ctx_use_privateKey_file(void *ctx, const char *file)
 {
-    return SSL_CTX_use_PrivateKey_file(ctx, file, SSL_FILETYPE_PEM);
+    return dv_ssl_ctx_use_private_key_file(ctx, file, SSL_FILETYPE_PEM);
 }
 
 static int
 dv_dovessl_ctx_check_private_key(const void *ctx)
 {
-    return SSL_CTX_check_private_key(ctx);
+    return dv_ssl_ctx_check_private_key(ctx);
 }
 
-static void *dv_dovessl_new(void *ctx)
+static void *
+dv_dovessl_new(void *ctx)
 {
-    return SSL_new(ctx);
+    return dv_ssl_new(ctx);
 }
 
 static int
 dv_dovessl_set_fd(void *s, int fd)
 {
-    return SSL_set_fd(s, fd);
+    return dv_ssl_set_fd(s, fd);
 }
 
 static int
 dv_dovessl_accept(void *s)
 {
-    return SSL_accept(s);
+    return dv_ssl_accept(s);
 }
 
 static int
 dv_dovessl_connect(void *s)
 {
-    return SSL_connect(s);
+    return dv_ssl_connect(s);
 }
 
 static int
 dv_dovessl_read(void *s, void *buf, int num)
 {
-    return SSL_read(s, buf, num);
+    return dv_ssl_read(s, buf, num);
 }
 
 static int
 dv_dovessl_write(void *s, const void *buf, int num)
 {
-    return SSL_write(s, buf, num);
+    return dv_ssl_write(s, buf, num);
 }
 
 static int
 dv_dovessl_shutdown(void *s)
 {
-    return SSL_shutdown(s);
+    return dv_ssl_shutdown(s);
 }
 
 static void
 dv_dovessl_free(void *s)
 {
-    SSL_free(s);
+    dv_ssl_free(s);
 }
 
 static void
 dv_dovessl_ctx_free(void *ctx)
 {
-    SSL_CTX_free(ctx);
+    dv_ssl_ctx_free(ctx);
 }
 
 static void

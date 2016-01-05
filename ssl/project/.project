@@ -28,7 +28,12 @@
 		<link>
 			<name>dv_ssl_lib.c</name>
 			<type>1</type>
-			<locationURI>PARENT-1-PROJECT_LOC/ssl/dv_ssl_lib.c</locationURI>
+			<locationURI>PARENT-1-PROJECT_LOC/dv_ssl_lib.c</locationURI>
+		</link>
+		<link>
+			<name>dv_tls.c</name>
+			<type>1</type>
+			<locationURI>PARENT-1-PROJECT_LOC/dv_tls.c</locationURI>
 		</link>
 	</linkedResources>
 </projectDescription>

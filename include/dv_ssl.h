@@ -3,8 +3,11 @@
 
 #include "dv_types.h"
 
+struct _dv_method_t;
+
 typedef struct _dv_ssl_t {
-    dv_u32      ssl_state;
+    dv_u32                          ssl_state;
+    const struct _dv_method_t       *ssl_method;
 } dv_ssl_t;
 
 typedef struct _dv_method_t {
@@ -33,26 +36,26 @@ extern int dv_library_init(void);
 extern void dv_add_all_algorighms(void);
 extern void dv_load_error_strings(void);
 
+extern int dv_ssl_accept_sock(dv_ssl_t *s);
+extern int dv_ssl_connect_sock(dv_ssl_t *s);
+extern int dv_ssl_read_sock(dv_ssl_t *s, void *buf, dv_u32 len);
+extern int dv_ssl_write_sock(dv_ssl_t *s, const void *buf, dv_u32 len);
+extern int dv_ssl_shutdown_sock(dv_ssl_t *s);
+
+
 extern int dv_ssl_accept(dv_ssl_t *s);
 extern int dv_ssl_connect(dv_ssl_t *s);
+extern int dv_ssl_set_fd(dv_ssl_t *s, int fd);
+extern int dv_ssl_read(dv_ssl_t *s, void *buf, dv_u32 len);
+extern int dv_ssl_write(dv_ssl_t *s, const void *buf, dv_u32 len);
+extern int dv_ssl_shutdown(dv_ssl_t *s);
+
 extern int dv_undefined_function(dv_ssl_t *s);
 
-#define ds_implement_tls_meth_func(version, func_name, s_accept, s_connect) \
-const dv_method_t *\
-func_name(void) \
-{ \
-    static const dv_method_t func_name##_data = { \
-        version, \
-        NULL, /* md_ssl_new */\
-        NULL, /* md_ssl_free */\
-        s_accept, \
-        s_connect, \
-        NULL, /* md_ssl_read */\
-        NULL, /* md_ssl_write */\
-        NULL, /* md_ssl_shutdown */\
-    }; \
-    \
-    return &func_name##_data;\
-}
+extern int dv_ssl_ctx_use_certificate_file(dv_ssl_ctx_t *ctx,
+            const char *file, dv_u32 type);
+extern int dv_ssl_ctx_use_private_key_file(dv_ssl_ctx_t *ctx,
+            const char *file, dv_u32 type);
+extern int dv_ssl_ctx_check_private_key(const dv_ssl_ctx_t *ctx);
 
 #endif

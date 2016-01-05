@@ -34,25 +34,61 @@ dv_ssl_new(dv_ssl_ctx_t *ctx)
         return NULL;
     }
 
+    ssl->ssl_method = ctx->sc_method;
+    if (ssl->ssl_method->md_ssl_new(ssl) != DV_OK) {
+        goto err;
+    }
+
     return ssl;
-}
-
-int
-dv_ssl_accept(dv_ssl_t *s)
-{
-    return DV_OK;
-}
-
-int
-dv_ssl_connect(dv_ssl_t *s)
-{
-    return DV_OK;
+err:
+    dv_free(ssl);
+    return NULL;
 }
 
 void
 dv_ssl_free(dv_ssl_t *s)
 {
+    if (s->ssl_method != NULL) {
+        s->ssl_method->md_ssl_free(s);
+    }
+
     dv_free(s);
+}
+
+int 
+dv_ssl_accept(dv_ssl_t *s)
+{
+    return s->ssl_method->md_ssl_accept(s);
+}
+
+int
+dv_ssl_connect(dv_ssl_t *s)
+{
+    return s->ssl_method->md_ssl_connect(s);
+}
+
+int
+dv_ssl_set_fd(dv_ssl_t *s, int fd)
+{
+    return DV_OK;
+}
+
+int
+dv_ssl_read(dv_ssl_t *s, void *buf, dv_u32 len)
+{
+    return s->ssl_method->md_ssl_read(s, buf, len);
+}
+
+int
+dv_ssl_write(dv_ssl_t *s, const void *buf, dv_u32 len)
+{
+    return s->ssl_method->md_ssl_write(s, buf, len);
+}
+
+int
+dv_ssl_shutdown(dv_ssl_t *s)
+{
+    return s->ssl_method->md_ssl_shutdown(s);
 }
 
 int
