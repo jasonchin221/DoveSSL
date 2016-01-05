@@ -47,7 +47,10 @@ sub usage {
     print ("\t\t\t\t-h (no args, help)\n");
 }
 
+my $scount = 0;
+my $acount = 0;
 for my $tc (@testcase) {
+    $acount++;
     $cmd_str = "sudo $test_cmd $tc->{$cmd_param}";
     if (!$opt_d) {
         $cmd_str .= " 1>/dev/null";
@@ -56,9 +59,11 @@ for my $tc (@testcase) {
     $ret /= 256;
     if ($ret eq 0) {
         print("testcase $tc->{$test_info} succeed!\n");
+        $scount++;
     } else {
         print("testcase $tc->{$test_info} failed! ret = $ret\n");
     }
 }
 
+print("Run $acount testcases, succeed $scount!\n");
 

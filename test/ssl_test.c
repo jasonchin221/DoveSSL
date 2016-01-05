@@ -16,6 +16,7 @@
 #include "ds_types.h"
 #include "ds_lib.h"
 #include "ds_errno.h"
+#include "ds_ssl.h"
 #include "ssl_test.h"
 
 #define DS_DEF_IP_ADDRESS       "127.0.0.1"
@@ -45,7 +46,6 @@ static int ds_openssl_shutdown(void *s);
 static void ds_openssl_free(void *s);
 static void ds_openssl_ctx_free(void *ctx);
 
-static void ds_dovessl_add_all_algorighms(void);
 static void *ds_dovessl_ctx_client_new(void);
 static void *ds_dovessl_ctx_server_new(void);
 static int ds_dovessl_ctx_use_certificate_file(void *ctx, const char *file);
@@ -108,9 +108,9 @@ static const ds_proto_suite_t ds_openssl_suite = {
 };
 
 static const ds_proto_suite_t ds_dovessl_suite = {
-    .ps_library_init = SSL_library_init,
-    .ps_add_all_algorithms = ds_dovessl_add_all_algorighms,
-    .ps_load_error_strings = SSL_load_error_strings,
+    .ps_library_init = ds_library_init,
+    .ps_add_all_algorithms = ds_add_all_algorighms,
+    .ps_load_error_strings = ds_load_error_strings,
     .ps_ctx_client_new = ds_dovessl_ctx_client_new,
     .ps_ctx_server_new = ds_dovessl_ctx_server_new,
     .ps_ctx_use_certificate_file = ds_dovessl_ctx_use_certificate_file,
@@ -127,6 +127,7 @@ static const ds_proto_suite_t ds_dovessl_suite = {
     .ps_ctx_free = ds_dovessl_ctx_free,
 };
 
+/* OpenSSL */
 static void
 ds_openssl_add_all_algorighms(void)
 {
@@ -216,12 +217,7 @@ ds_openssl_ctx_free(void *ctx)
     SSL_CTX_free(ctx);
 }
 
-static void
-ds_dovessl_add_all_algorighms(void)
-{
-    OpenSSL_add_all_algorithms();
-}
-
+/* DoveSSL */
 static void *
 ds_dovessl_ctx_client_new(void)
 {
