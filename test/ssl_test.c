@@ -16,6 +16,7 @@
 #include "ds_types.h"
 #include "ds_lib.h"
 #include "ds_errno.h"
+#include "ssl_test.h"
 
 #define DS_DEF_IP_ADDRESS       "127.0.0.1"
 #define DS_DEF_PORT             "7838"
@@ -28,13 +29,46 @@
 #define DS_TEST_CMD_END         "end"
 #define DS_BUF_MAX_LEN          1000
 
+static void ds_openssl_add_all_algorighms(void);
+static void *ds_openssl_ctx_client_new(void);
+static void *ds_openssl_ctx_server_new(void);
+static int ds_openssl_ctx_use_certificate_file(void *ctx, const char *file);
+static int ds_openssl_ctx_use_privateKey_file(void *ctx, const char *file);
+static int ds_openssl_ctx_check_private_key(const void *ctx);
+static void *ds_openssl_new(void *ctx);
+static int ds_openssl_set_fd(void *s, int fd);
+static int ds_openssl_accept(void *s);
+static int ds_openssl_connect(void *s);
+static int ds_openssl_read(void *s, void *buf, int num);
+static int ds_openssl_write(void *s, const void *buf, int num);
+static int ds_openssl_shutdown(void *s);
+static void ds_openssl_free(void *s);
+static void ds_openssl_ctx_free(void *ctx);
+
+static void ds_dovessl_add_all_algorighms(void);
+static void *ds_dovessl_ctx_client_new(void);
+static void *ds_dovessl_ctx_server_new(void);
+static int ds_dovessl_ctx_use_certificate_file(void *ctx, const char *file);
+static int ds_dovessl_ctx_use_privateKey_file(void *ctx, const char *file);
+static int ds_dovessl_ctx_check_private_key(const void *ctx);
+static void *ds_dovessl_new(void *ctx);
+static int ds_dovessl_set_fd(void *s, int fd);
+static int ds_dovessl_accept(void *s);
+static int ds_dovessl_connect(void *s);
+static int ds_dovessl_read(void *s, void *buf, int num);
+static int ds_dovessl_write(void *s, const void *buf, int num);
+static int ds_dovessl_shutdown(void *s);
+static void ds_dovessl_free(void *s);
+static void ds_dovessl_ctx_free(void *ctx);
+
 static const char *
 ds_program_version = "1.0.0";//PACKAGE_STRING;
 
 static const struct option 
 ds_long_opts[] = {
 	{"help", 0, 0, 'H'},
-	{"openssl", 0, 0, 'O'},
+	{"client", 0, 0, 'C'},
+	{"server", 0, 0, 'S'},
 	{"address", 0, 0, 'a'},
 	{"port", 0, 0, 'p'},
 	{"certificate", 0, 0, 'c'},
@@ -48,9 +82,228 @@ ds_options[] = {
 	"--port         -p	Port for SSL communication\n",	
 	"--certificate  -c	certificate file\n",	
 	"--key          -k	private key file\n",	
-	"--openssl      -O	Use openssl lib\n",	
+	"--client       -C	Client use openssl lib\n",	
+	"--server       -S	Server use openssl lib\n",	
 	"--help         -H	Print help information\n",	
 };
+
+static const ds_proto_suite_t ds_openssl_suite = {
+    .ps_library_init = SSL_library_init,
+    .ps_add_all_algorithms = ds_openssl_add_all_algorighms,
+    .ps_load_error_strings = SSL_load_error_strings,
+    .ps_ctx_client_new = ds_openssl_ctx_client_new,
+    .ps_ctx_server_new = ds_openssl_ctx_server_new,
+    .ps_ctx_use_certificate_file = ds_openssl_ctx_use_certificate_file,
+    .ps_ctx_use_privateKey_file = ds_openssl_ctx_use_privateKey_file,
+    .ps_ctx_check_private_key = ds_openssl_ctx_check_private_key,
+    .ps_ssl_new = ds_openssl_new,
+    .ps_set_fd = ds_openssl_set_fd,
+    .ps_accept = ds_openssl_accept,
+    .ps_connect = ds_openssl_connect,
+    .ps_read = ds_openssl_read,
+    .ps_write = ds_openssl_write,
+    .ps_shutdown = ds_openssl_shutdown,
+    .ps_ssl_free = ds_openssl_free,
+    .ps_ctx_free = ds_openssl_ctx_free,
+};
+
+static const ds_proto_suite_t ds_dovessl_suite = {
+    .ps_library_init = SSL_library_init,
+    .ps_add_all_algorithms = ds_dovessl_add_all_algorighms,
+    .ps_load_error_strings = SSL_load_error_strings,
+    .ps_ctx_client_new = ds_dovessl_ctx_client_new,
+    .ps_ctx_server_new = ds_dovessl_ctx_server_new,
+    .ps_ctx_use_certificate_file = ds_dovessl_ctx_use_certificate_file,
+    .ps_ctx_use_privateKey_file = ds_dovessl_ctx_use_privateKey_file,
+    .ps_ctx_check_private_key = ds_dovessl_ctx_check_private_key,
+    .ps_ssl_new = ds_dovessl_new,
+    .ps_set_fd = ds_dovessl_set_fd,
+    .ps_accept = ds_dovessl_accept,
+    .ps_connect = ds_dovessl_connect,
+    .ps_read = ds_dovessl_read,
+    .ps_write = ds_dovessl_write,
+    .ps_shutdown = ds_dovessl_shutdown,
+    .ps_ssl_free = ds_dovessl_free,
+    .ps_ctx_free = ds_dovessl_ctx_free,
+};
+
+static void
+ds_openssl_add_all_algorighms(void)
+{
+    OpenSSL_add_all_algorithms();
+}
+
+static void *
+ds_openssl_ctx_client_new(void)
+{
+    return SSL_CTX_new(TLSv1_2_client_method());
+}
+
+static void *
+ds_openssl_ctx_server_new(void)
+{
+    return SSL_CTX_new(TLSv1_2_server_method());
+}
+
+static int 
+ds_openssl_ctx_use_certificate_file(void *ctx, const char *file)
+{
+    return SSL_CTX_use_certificate_file(ctx, file, SSL_FILETYPE_PEM);
+}
+
+static int
+ds_openssl_ctx_use_privateKey_file(void *ctx, const char *file)
+{
+    return SSL_CTX_use_PrivateKey_file(ctx, file, SSL_FILETYPE_PEM);
+}
+
+static int
+ds_openssl_ctx_check_private_key(const void *ctx)
+{
+    return SSL_CTX_check_private_key(ctx);
+}
+
+static void *ds_openssl_new(void *ctx)
+{
+    return SSL_new(ctx);
+}
+
+static int
+ds_openssl_set_fd(void *s, int fd)
+{
+    return SSL_set_fd(s, fd);
+}
+
+static int
+ds_openssl_accept(void *s)
+{
+    return SSL_accept(s);
+}
+
+static int
+ds_openssl_connect(void *s)
+{
+    return SSL_connect(s);
+}
+
+static int
+ds_openssl_read(void *s, void *buf, int num)
+{
+    return SSL_read(s, buf, num);
+}
+
+static int
+ds_openssl_write(void *s, const void *buf, int num)
+{
+    return SSL_write(s, buf, num);
+}
+
+static int
+ds_openssl_shutdown(void *s)
+{
+    return SSL_shutdown(s);
+}
+
+static void
+ds_openssl_free(void *s)
+{
+    SSL_free(s);
+}
+
+static void
+ds_openssl_ctx_free(void *ctx)
+{
+    SSL_CTX_free(ctx);
+}
+
+static void
+ds_dovessl_add_all_algorighms(void)
+{
+    OpenSSL_add_all_algorithms();
+}
+
+static void *
+ds_dovessl_ctx_client_new(void)
+{
+    return SSL_CTX_new(TLSv1_2_client_method());
+}
+
+static void *
+ds_dovessl_ctx_server_new(void)
+{
+    return SSL_CTX_new(TLSv1_2_server_method());
+}
+
+static int 
+ds_dovessl_ctx_use_certificate_file(void *ctx, const char *file)
+{
+    return SSL_CTX_use_certificate_file(ctx, file, SSL_FILETYPE_PEM);
+}
+
+static int
+ds_dovessl_ctx_use_privateKey_file(void *ctx, const char *file)
+{
+    return SSL_CTX_use_PrivateKey_file(ctx, file, SSL_FILETYPE_PEM);
+}
+
+static int
+ds_dovessl_ctx_check_private_key(const void *ctx)
+{
+    return SSL_CTX_check_private_key(ctx);
+}
+
+static void *ds_dovessl_new(void *ctx)
+{
+    return SSL_new(ctx);
+}
+
+static int
+ds_dovessl_set_fd(void *s, int fd)
+{
+    return SSL_set_fd(s, fd);
+}
+
+static int
+ds_dovessl_accept(void *s)
+{
+    return SSL_accept(s);
+}
+
+static int
+ds_dovessl_connect(void *s)
+{
+    return SSL_connect(s);
+}
+
+static int
+ds_dovessl_read(void *s, void *buf, int num)
+{
+    return SSL_read(s, buf, num);
+}
+
+static int
+ds_dovessl_write(void *s, const void *buf, int num)
+{
+    return SSL_write(s, buf, num);
+}
+
+static int
+ds_dovessl_shutdown(void *s)
+{
+    return SSL_shutdown(s);
+}
+
+static void
+ds_dovessl_free(void *s)
+{
+    SSL_free(s);
+}
+
+static void
+ds_dovessl_ctx_free(void *ctx)
+{
+    SSL_CTX_free(ctx);
+}
 
 static void
 ds_add_epoll_event(int epfd, struct epoll_event *ev, int fd)
@@ -60,7 +313,9 @@ ds_add_epoll_event(int epfd, struct epoll_event *ev, int fd)
     epoll_ctl(epfd, EPOLL_CTL_ADD, fd, ev);
 }
 
-int server_main(int pipefd, struct sockaddr_in *my_addr, char *cf, char *key)
+static int
+ds_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
+        char *key, const ds_proto_suite_t *suite)
 {
     struct epoll_event  ev = {};
     struct epoll_event  events[DS_TEST_EVENT_MAX_NUM] = {};
@@ -75,55 +330,51 @@ int server_main(int pipefd, struct sockaddr_in *my_addr, char *cf, char *key)
     ssize_t             wlen = 0;
     struct sockaddr_in  their_addr = {};
     char                buf[DS_BUF_MAX_LEN] = {};
-    SSL_CTX             *ctx = NULL;
-    SSL                 *ssl = NULL;
+    void                *ctx = NULL;
+    void                *ssl = NULL;
         
     /* SSL 库初始化 */
-    SSL_library_init();
+    suite->ps_library_init();
     /* 载入所有 SSL 算法 */
-    OpenSSL_add_all_algorithms();
+    suite->ps_add_all_algorithms();
     /* 载入所有 SSL 错误消息 */
-    SSL_load_error_strings();
+    suite->ps_load_error_strings();
     /* 以 TLS1.2 标准兼容方式产生一个 SSL_CTX ,即 SSL Content Text */
-    ctx = SSL_CTX_new(TLSv1_2_server_method());
-    /* 也可以用 SSLv2_server_method() 或 SSLv3_server_method() 单独表示 V2 或 V3
-       标准 */
+    ctx = suite->ps_ctx_server_new();
     if (ctx == NULL) {
-        ERR_print_errors_fp(stdout);
+        fprintf(stderr, "CTX new failed!\n");
         exit(1);
     }
     /* 载入用户的数字证书, 此证书用来发送给客户端。 证书里包含有公钥 */
-    if (SSL_CTX_use_certificate_file(ctx, cf, SSL_FILETYPE_PEM) <= 0) {
-        ERR_print_errors_fp(stdout);
+    if (suite->ps_ctx_use_certificate_file(ctx, cf) <= 0) {
+        fprintf(stderr, "Load certificate failed!\n");
         exit(1);
     }
     /* 载入用户私钥 */
-    if (SSL_CTX_use_PrivateKey_file(ctx, key, SSL_FILETYPE_PEM) <= 0) {
-        ERR_print_errors_fp(stdout);
+    if (suite->ps_ctx_use_privateKey_file(ctx, key) <= 0) {
+        fprintf(stderr, "Load private key failed!\n");
         exit(1);
     }
     /* 检查用户私钥是否正确 */
-    if (!SSL_CTX_check_private_key(ctx)) {
-        ERR_print_errors_fp(stdout);
+    if (!suite->ps_ctx_check_private_key(ctx)) {
+        fprintf(stderr, "Check private key failed!\n");
         exit(1);
     }
     /* 开启一个 socket 监听 */
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("socket");
         exit(1);
-    } else
-        printf("socket created\n");
+    }
 
     if (bind(sockfd, (struct sockaddr *)my_addr, sizeof(*my_addr)) == -1) {
         perror("bind");
         exit(1);
-    } else
-        printf("binded\n");
+    }
+    
     if (listen(sockfd, DS_SERVER_LISTEN_NUM) == -1) {
         perror("listen");
         exit(1);
-    } else
-        printf("begin listen\n");
+    }
 
     epfd = epoll_create(1);
     if (epfd < 0) {
@@ -149,11 +400,11 @@ int server_main(int pipefd, struct sockaddr_in *my_addr, char *cf, char *key)
                         exit(errno);
                     } 
                     /* 基于 ctx 产生一个新的 SSL */
-                    ssl = SSL_new(ctx);
+                    ssl = suite->ps_ssl_new(ctx);
                     /* 将连接用户的 socket 加入到 SSL */
-                    SSL_set_fd(ssl, new_fd);
+                    suite->ps_set_fd(ssl, new_fd);
                     /* 建立 SSL 连接 */
-                    if (SSL_accept(ssl) == -1) {
+                    if (suite->ps_accept(ssl) == -1) {
                         perror("accept");
                         close(new_fd);
                         goto out;
@@ -161,7 +412,7 @@ int server_main(int pipefd, struct sockaddr_in *my_addr, char *cf, char *key)
                     /* 开始处理每个新连接上的数据收发 */
                     bzero(buf, sizeof(buf));
                     /* 接收客户端的消息 */
-                    len = SSL_read(ssl, buf, sizeof(buf));
+                    len = suite->ps_read(ssl, buf, sizeof(buf));
                     if (len > 0 && strcmp(buf, DS_TEST_REQ) == 0) {
                         printf("Server接收消息成功:'%s',共%d 个字节的数据\n",
                                 buf, len);
@@ -171,7 +422,7 @@ int server_main(int pipefd, struct sockaddr_in *my_addr, char *cf, char *key)
                         goto finish;
                     }
                     /* 发消息给客户端 */
-                    len = SSL_write(ssl, DS_TEST_RESP, sizeof(DS_TEST_RESP));
+                    len = suite->ps_write(ssl, DS_TEST_RESP, sizeof(DS_TEST_RESP));
                     if (len <= 0) {
                         printf("Server消息'%s'发送失败!错误信息是'%s'\n",
                              buf, strerror(errno));
@@ -183,9 +434,9 @@ int server_main(int pipefd, struct sockaddr_in *my_addr, char *cf, char *key)
                     /* 处理每个新连接上的数据收发结束 */
 finish:
                     /* 关闭 SSL 连接 */
-                    SSL_shutdown(ssl);
+                    suite->ps_shutdown(ssl);
                     /* 释放 SSL */
-                    SSL_free(ssl);
+                    suite->ps_ssl_free(ssl);
                     /* 关闭 socket */
                     close(new_fd);
                     ds_add_epoll_event(epfd, &ev, sockfd);
@@ -217,17 +468,18 @@ out:
     /* 关闭监听的 socket */
     close(sockfd);
     /* 释放 CTX */
-    SSL_CTX_free(ctx);
+    suite->ps_ctx_free(ctx);
     return 0;
 }
 
 static int
-ds_server(int pipefd, struct sockaddr_in *addr, char *cf, char *key)
+ds_server(int pipefd, struct sockaddr_in *addr, char *cf,
+        char *key, const ds_proto_suite_t *suite)
 {
-    return server_main(pipefd, addr, cf, key);
+    return ds_server_main(pipefd, addr, cf, key, suite);
 }
 
-
+#if 0
 void ShowCerts(SSL * ssl)
 {
     X509 *cert;
@@ -245,8 +497,11 @@ void ShowCerts(SSL * ssl)
     } else
         printf("无证书信息!\n");
 }
+#endif
 
-int client_main(struct sockaddr_in *dest)
+static int 
+ds_client_main(struct sockaddr_in *dest, char *cf, char *key,
+        const ds_proto_suite_t *suite)
 {
     int         sockfd = 0;
     int         len = 0;
@@ -254,11 +509,10 @@ int client_main(struct sockaddr_in *dest)
     SSL_CTX     *ctx = NULL;
     SSL         *ssl = NULL;
 
-    /* SSL 库初始化,参看 ssl-server.c 代码 */
-    SSL_library_init();
-    OpenSSL_add_all_algorithms();
-    SSL_load_error_strings();
-    ctx = SSL_CTX_new(TLSv1_2_client_method());
+    suite->ps_library_init();
+    suite->ps_add_all_algorithms();
+    suite->ps_load_error_strings();
+    ctx = suite->ps_ctx_client_new();
     if (ctx == NULL) {
         ERR_print_errors_fp(stdout);
         return DS_ERROR;
@@ -277,17 +531,17 @@ int client_main(struct sockaddr_in *dest)
     }
     printf("server connected\n");
     /* 基于 ctx 产生一个新的 SSL */
-    ssl = SSL_new(ctx);
-    SSL_set_fd(ssl, sockfd);
+    ssl = suite->ps_ssl_new(ctx);
+    suite->ps_set_fd(ssl, sockfd);
     /* 建立 SSL 连接 */
-    if (SSL_connect(ssl) == -1)
+    if (suite->ps_connect(ssl) == -1) {
         ERR_print_errors_fp(stderr);
-    else {
-        printf("Connected with %s encryption\n", SSL_get_cipher(ssl));
-        ShowCerts(ssl);
+    } else {
+        //printf("Connected with %s encryption\n", SSL_get_cipher(ssl));
+        //ShowCerts(ssl);
     }
     /* 发消息给服务器 */
-    len = SSL_write(ssl, DS_TEST_REQ, sizeof(DS_TEST_REQ));
+    len = suite->ps_write(ssl, DS_TEST_REQ, sizeof(DS_TEST_REQ));
     if (len < 0) {
         printf("Client消息'%s'发送失败!错误代码是%d,错误信息是'%s'\n",
              buffer, errno, strerror(errno));
@@ -297,7 +551,7 @@ int client_main(struct sockaddr_in *dest)
     }
 
     /* 接收服务器来的消息 */
-    len = SSL_read(ssl, buffer, sizeof(buffer));
+    len = suite->ps_read(ssl, buffer, sizeof(buffer));
     if (len > 0 && strcmp(buffer, DS_TEST_RESP) == 0) {
         printf("Client接收消息成功:'%s',共%d 个字节的数据\n",
                 buffer, len);
@@ -307,15 +561,16 @@ int client_main(struct sockaddr_in *dest)
     }
 
     /* 关闭连接 */
-    SSL_shutdown(ssl);
-    SSL_free(ssl);
+    suite->ps_shutdown(ssl);
+    suite->ps_ssl_free(ssl);
     close(sockfd);
-    SSL_CTX_free(ctx);
+    suite->ps_ctx_free(ctx);
     return 0;
 }
 
 static int
-ds_client(int pipefd, struct sockaddr_in *addr, char *cf)
+ds_client(int pipefd, struct sockaddr_in *addr, char *cf, 
+        char *key, const ds_proto_suite_t *suite)
 {
     char                buf[DS_BUF_MAX_LEN] = {};
     ssize_t             rlen = 0;
@@ -332,7 +587,7 @@ ds_client(int pipefd, struct sockaddr_in *addr, char *cf)
         fprintf(stderr, "Read from pipefd failed(errno=%s)\n", strerror(errno));
         return DS_ERROR;
     }
-    ret = client_main(addr);
+    ret = ds_client_main(addr, cf, key, suite);
     if (ret != DS_OK) {
         close(pipefd);
         return DS_ERROR;
@@ -369,22 +624,24 @@ ds_help(void)
 }
 
 static const char *
-ds_optstring = "HOa:p:c:k:";
+ds_optstring = "HCSa:p:c:k:";
 
 int
 main(int argc, char **argv)  
 {
-    int                 c = 0;
-    int                 fd[2] = {};
-    struct sockaddr_in  addr = {
+    int                     c = 0;
+    int                     fd[2] = {};
+    struct sockaddr_in      addr = {
         .sin_family = AF_INET,
     };
-    pid_t               pid = 0;
-    ds_u16              pport = 0;
-    char                *ip = DS_DEF_IP_ADDRESS;
-    char                *port = DS_DEF_IP_ADDRESS;
-    char                *cf = NULL;
-    char                *key = NULL;
+    pid_t                   pid = 0;
+    ds_u16                  pport = 0;
+    const ds_proto_suite_t  *client_suite = &ds_dovessl_suite;
+    const ds_proto_suite_t  *server_suite = &ds_dovessl_suite;
+    char                    *ip = DS_DEF_IP_ADDRESS;
+    char                    *port = DS_DEF_IP_ADDRESS;
+    char                    *cf = NULL;
+    char                    *key = NULL;
 
     while((c = getopt_long(argc, argv, 
                     ds_optstring,  ds_long_opts, NULL)) != -1) {
@@ -393,8 +650,13 @@ main(int argc, char **argv)
                 ds_help();
                 return DS_OK;
 
-            case 'O':
-                return DS_OK;
+            case 'C':
+                client_suite = &ds_openssl_suite;
+                break;
+
+            case 'S':
+                server_suite = &ds_openssl_suite;
+                break;
 
             case 'a':
                 ip = optarg;
@@ -444,10 +706,10 @@ main(int argc, char **argv)
 
     if (pid > 0) {  /* Parent */
         close(fd[0]);
-        return -ds_client(fd[1], &addr, cf);
+        return -ds_client(fd[1], &addr, cf, key, client_suite);
     }
 
     /* Child */
     close(fd[1]);
-    return -ds_server(fd[0], &addr, cf, key);
+    return -ds_server(fd[0], &addr, cf, key, server_suite);
 }
