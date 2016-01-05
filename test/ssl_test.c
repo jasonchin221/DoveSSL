@@ -150,19 +150,40 @@ dv_openssl_ctx_server_new(void)
 static int 
 dv_openssl_ctx_use_certificate_file(void *ctx, const char *file)
 {
-    return SSL_CTX_use_certificate_file(ctx, file, SSL_FILETYPE_PEM);
+    int     ret = 0;
+
+    ret = SSL_CTX_use_certificate_file(ctx, file, SSL_FILETYPE_PEM);
+    if (ret <= 0) {
+        return DV_ERROR;
+    }
+
+    return DV_OK;
 }
 
 static int
 dv_openssl_ctx_use_privateKey_file(void *ctx, const char *file)
 {
-    return SSL_CTX_use_PrivateKey_file(ctx, file, SSL_FILETYPE_PEM);
+    int     ret = 0;
+
+    ret = SSL_CTX_use_PrivateKey_file(ctx, file, SSL_FILETYPE_PEM);
+    if (ret <= 0) {
+        return DV_ERROR;
+    }
+
+    return DV_OK;
 }
 
 static int
 dv_openssl_ctx_check_private_key(const void *ctx)
 {
-    return SSL_CTX_check_private_key(ctx);
+    int     ret = 0;
+
+    ret = SSL_CTX_check_private_key(ctx);
+    if (ret == 0) {
+        return DV_ERROR;
+    }
+
+    return DV_OK;
 }
 
 static void *dv_openssl_new(void *ctx)
@@ -344,17 +365,17 @@ dv_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
         exit(1);
     }
     /* 载入用户的数字证书, 此证书用来发送给客户端。 证书里包含有公钥 */
-    if (suite->ps_ctx_use_certificate_file(ctx, cf) <= 0) {
+    if (suite->ps_ctx_use_certificate_file(ctx, cf) < 0) {
         fprintf(stderr, "Load certificate failed!\n");
         exit(1);
     }
     /* 载入用户私钥 */
-    if (suite->ps_ctx_use_privateKey_file(ctx, key) <= 0) {
+    if (suite->ps_ctx_use_privateKey_file(ctx, key) < 0) {
         fprintf(stderr, "Load private key failed!\n");
         exit(1);
     }
     /* 检查用户私钥是否正确 */
-    if (!suite->ps_ctx_check_private_key(ctx)) {
+    if (suite->ps_ctx_check_private_key(ctx) < 0) {
         fprintf(stderr, "Check private key failed!\n");
         exit(1);
     }
@@ -417,20 +438,19 @@ dv_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
                     } else {
                         printf("Server消息接收失败!错误代码是%d,错误信息是'%s'\n",
                              errno, strerror(errno));
-                        goto finish;
+                        exit(1);
                     }
                     /* 发消息给客户端 */
                     len = suite->ps_write(ssl, DV_TEST_RESP, sizeof(DV_TEST_RESP));
                     if (len <= 0) {
                         printf("Server消息'%s'发送失败!错误信息是'%s'\n",
                              buf, strerror(errno));
-                        goto finish;
+                        exit(1);
                     } 
                     printf("Server消息'%s'发送成功,共发送了%d 个字节!\n",
                             DV_TEST_RESP, len);
 
                     /* 处理每个新连接上的数据收发结束 */
-finish:
                     /* 关闭 SSL 连接 */
                     suite->ps_shutdown(ssl);
                     /* 释放 SSL */
@@ -506,6 +526,7 @@ dv_client_main(struct sockaddr_in *dest, char *cf, char *key,
     char        buffer[DV_BUF_MAX_LEN] = {};
     SSL_CTX     *ctx = NULL;
     SSL         *ssl = NULL;
+    int         ret = DV_OK;
 
     suite->ps_library_init();
     suite->ps_add_all_algorithms();
@@ -543,6 +564,7 @@ dv_client_main(struct sockaddr_in *dest, char *cf, char *key,
     if (len < 0) {
         printf("Client消息'%s'发送失败!错误代码是%d,错误信息是'%s'\n",
              buffer, errno, strerror(errno));
+        exit(1);
     } else {
         printf("Client消息'%s'发送成功,共发送了%d 个字节!\n",
                 DV_TEST_REQ, len);
@@ -556,6 +578,7 @@ dv_client_main(struct sockaddr_in *dest, char *cf, char *key,
     } else {
         printf("Client消息接收失败!错误代码是%d,错误信息是'%s', len = %d\n",
              errno, strerror(errno), len);
+        ret = DV_ERROR;
     }
 
     /* 关闭连接 */
@@ -563,7 +586,7 @@ dv_client_main(struct sockaddr_in *dest, char *cf, char *key,
     suite->ps_ssl_free(ssl);
     close(sockfd);
     suite->ps_ctx_free(ctx);
-    return 0;
+    return ret;
 }
 
 static int
