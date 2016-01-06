@@ -1,6 +1,8 @@
 #ifndef __DV_CRYPTO_H__
 #define __DV_CRYPTO_H__
 
+#include <sys/types.h>
+
 extern void *dv_crypto_malloc(size_t num, const char *file, int line);
 extern void dv_crypto_free(void *ptr);
 

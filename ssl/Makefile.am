@@ -1,6 +1,6 @@
 lib_LTLIBRARIES = libdove_ssl.la
 libdove_ssl_la_SOURCES = dv_ssl_lib.c dv_tls.c dv_ssl_rsa.c dv_ssl_sock.c \
-						 dv_tls1_lib.c
+						 dv_tls1_lib.c dv_tls1_2_proto.c
 libdove_ssl_la_LDFLAGS = -version-info 1
 libdove_ssl_la_LIBADD = $(srcdir)/../crypto/libdove_crypto.la
 

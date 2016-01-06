@@ -21,6 +21,7 @@ typedef struct _dv_method_t {
 //    int         (*md_ssl_peek)(dv_ssl_t *s, void *buf, dv_u32 len);
     int         (*md_ssl_write)(dv_ssl_t *s, const void *buf, dv_u32 len);
     int         (*md_ssl_shutdown)(dv_ssl_t *s);
+    void        *(*md_ssl_handshake)(dv_ssl_t *s, dv_u32 *len);
 } dv_method_t;
 
 typedef struct _dv_ssl_ctx_t {
