@@ -343,6 +343,7 @@ dv_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
     int                 new_fd = 0;
     int                 epfd = 0;
     int                 nfds = 0;
+    int                 reuse = 1;
     int                 i = 0;
     socklen_t           len = 0;
     ssize_t             rlen = 0;
@@ -384,6 +385,8 @@ dv_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
         perror("socket");
         exit(1);
     }
+
+    setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse));
 
     if (bind(sockfd, (struct sockaddr *)my_addr, sizeof(*my_addr)) == -1) {
         perror("bind");
@@ -487,7 +490,8 @@ out:
     close(sockfd);
     /* 释放 CTX */
     suite->ps_ctx_free(ctx);
-    return 0;
+    fprintf(stdout, "Server exit!\n");
+    exit(0);
 }
 
 static int

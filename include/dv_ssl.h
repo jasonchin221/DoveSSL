@@ -8,6 +8,7 @@ struct _dv_method_t;
 typedef struct _dv_ssl_t {
     dv_u32                          ssl_state;
     const struct _dv_method_t       *ssl_method;
+    int                             ssl_fd;
 } dv_ssl_t;
 
 typedef struct _dv_method_t {

@@ -1,3 +1,4 @@
+#include <unistd.h>
 
 #include "dv_ssl.h"
 #include "dv_crypto.h"
@@ -18,13 +19,13 @@ dv_ssl_connect_sock(dv_ssl_t *s)
 int
 dv_ssl_read_sock(dv_ssl_t *s, void *buf, dv_u32 len)
 {
-    return DV_OK;
+    return read(s->ssl_fd, buf, len);
 }
 
 int
 dv_ssl_write_sock(dv_ssl_t *s, const void *buf, dv_u32 len)
 {
-    return DV_OK;
+    return write(s->ssl_fd, buf, len);
 }
 
 int

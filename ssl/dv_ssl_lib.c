@@ -70,6 +70,8 @@ dv_ssl_connect(dv_ssl_t *s)
 int
 dv_ssl_set_fd(dv_ssl_t *s, int fd)
 {
+    s->ssl_fd = fd;
+
     return DV_OK;
 }
 
