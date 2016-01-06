@@ -39,9 +39,11 @@ dv_ssl_new(dv_ssl_ctx_t *ctx)
         goto err;
     }
 
+    ssl->ssl_state = DV_SSL_STATE_INIT;
+
     return ssl;
 err:
-    dv_free(ssl);
+    dv_ssl_free(ssl);
     return NULL;
 }
 
@@ -91,6 +93,12 @@ int
 dv_ssl_shutdown(dv_ssl_t *s)
 {
     return s->ssl_method->md_ssl_shutdown(s);
+}
+
+int
+dv_ssl_get_message(dv_ssl_t *s, int type)
+{
+    return s->ssl_method->md_ssl_get_message(s, type);
 }
 
 int
