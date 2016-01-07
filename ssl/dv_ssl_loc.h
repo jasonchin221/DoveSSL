@@ -4,7 +4,7 @@
 #include "dv_ssl.h"
 #include "dv_tls.h"
 
-#define ds_implement_tls_meth_func(version, msg_max_len, func_name, \
+#define dv_implement_tls_meth_func(version, msg_max_len, func_name, \
         accept, connect,handshake, read_f, write_f) \
 const dv_method_t *\
 func_name(void) \
@@ -28,5 +28,7 @@ func_name(void) \
     return &func_name##_data;\
 }
 
+extern void dv_tls_get_cipher_suites(dv_u16 *dest, 
+            const dv_u16 *suites, dv_u32 num);
 
 #endif

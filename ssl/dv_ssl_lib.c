@@ -2,13 +2,14 @@
 #include "dv_ssl.h"
 #include "dv_crypto.h"
 #include "dv_errno.h"
+#include "dv_types.h"
 
 dv_ssl_ctx_t *
 dv_ssl_ctx_new(const dv_method_t *meth)
 {
     dv_ssl_ctx_t    *ctx = NULL;
 
-    ctx = dv_malloc(sizeof(*ctx));
+    ctx = dv_calloc(sizeof(*ctx));
     if (ctx == NULL) {
         return NULL;
     }
@@ -29,7 +30,7 @@ dv_ssl_new(dv_ssl_ctx_t *ctx)
 {
     dv_ssl_t    *ssl = NULL;
 
-    ssl = dv_malloc(sizeof(*ssl));
+    ssl = dv_calloc(sizeof(*ssl));
     if (ssl == NULL) {
         return NULL;
     }
@@ -60,12 +61,16 @@ dv_ssl_free(dv_ssl_t *s)
 int 
 dv_ssl_accept(dv_ssl_t *s)
 {
+    s->ssl_server = DV_TRUE;
+
     return s->ssl_method->md_ssl_accept(s);
 }
 
 int
 dv_ssl_connect(dv_ssl_t *s)
 {
+    s->ssl_server = DV_FALSE;
+
     return s->ssl_method->md_ssl_connect(s);
 }
 

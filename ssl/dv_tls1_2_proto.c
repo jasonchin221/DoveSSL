@@ -1,30 +1,64 @@
 
-
 #include "dv_crypto.h"
 #include "dv_ssl.h"
+#include "dv_ssl_loc.h"
 #include "dv_tls.h"
+#include "dv_lib.h"
+
+static const dv_u16 dv_tls1_2_cipher_suites[] = {
+    DV_TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, 
+    DV_TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+    DV_TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+    DV_TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+    DV_TLS_RSA_WITH_AES_256_GCM_SHA384,
+    DV_TLS_RSA_WITH_AES_256_CBC_SHA256,
+    DV_TLS_RSA_WITH_AES_128_GCM_SHA256,
+    DV_TLS_RSA_WITH_AES_128_CBC_SHA256,
+};
 
 int
 dv_tls1_2_client_handshake(dv_ssl_t *s, void *buf, dv_u32 len)
 {
-    dv_tls_record_proto_header_t    *h = NULL;
-    h = buf;
-    h->rh_content_type = DV_TLS_CONTENT_TYPE_HANDSHAKE;
-    h->rh_version.pv_version = DV_TLS1_2_VERSION;
-    h->rh_length = 0;
+    dv_tls_record_header_t      *rh = NULL;
+    dv_tls_handshake_header_t   *hh = NULL;
+    dv_tlsv1_2_client_hello_t   *ch = NULL;
+    dv_u16                      *cipher_suites_len = NULL;
+    dv_u32                      hlen = 0;
+    dv_u16                      tlen = 0;
+
+    rh = buf;
+    hh = (dv_tls_handshake_header_t *)(rh + 1);
+    ch = (dv_tlsv1_2_client_hello_t *)(hh + 1);
+    cipher_suites_len = (dv_u16 *)(ch + 1);
+    *cipher_suites_len = sizeof(dv_tls1_2_cipher_suites);
+    dv_tls_get_cipher_suites(cipher_suites_len + 1, dv_tls1_2_cipher_suites,
+            DV_ARRAY_SIZE(dv_tls1_2_cipher_suites));
+    hlen += sizeof(*cipher_suites_len ) + *cipher_suites_len; 
+    *cipher_suites_len = DV_HTONS(*cipher_suites_len);
+
+    ch->ch_version.pv_version = DV_HTONS(DV_TLS1_2_VERSION);
+    hlen += sizeof(dv_tlsv1_2_client_hello_t);
+
+    hh->hh_msg_type = DV_TLS_HANDSHAKE_TYPE_CLIENT_HELLO;
+    DV_SET_LENGTH(hh->hh_length, hlen);
     
-    return sizeof(*h);
+    rh->rh_content_type = DV_TLS_CONTENT_TYPE_HANDSHAKE;
+    rh->rh_version.pv_version = DV_HTONS(DV_TLS1_0_VERSION);
+    tlen = sizeof(*hh) + hlen;
+    rh->rh_length = DV_HTONS(tlen);
+
+    return sizeof(*rh) + tlen;
 }
 
 int
 dv_tls1_2_server_handshake(dv_ssl_t *s, void *buf, dv_u32 len)
 {
-    dv_tls_record_proto_header_t    *h = NULL;
+    dv_tls_record_header_t  *rh = NULL;
 
-    h = buf;
-    h->rh_content_type = DV_TLS_CONTENT_TYPE_HANDSHAKE;
-    h->rh_version.pv_version = DV_TLS1_2_VERSION;
-    h->rh_length = 0;
+    rh = buf;
+    rh->rh_content_type = DV_TLS_CONTENT_TYPE_HANDSHAKE;
+    rh->rh_version.pv_version = DV_TLS1_2_VERSION;
+    rh->rh_length = 0;
     
-    return sizeof(*h);
+    return sizeof(*rh) + rh->rh_length;
 }

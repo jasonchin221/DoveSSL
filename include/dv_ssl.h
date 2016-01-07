@@ -14,6 +14,7 @@ struct _dv_method_t;
 typedef struct _dv_ssl_t {
     dv_u32                          ssl_state;
     const struct _dv_method_t       *ssl_method;
+    bool                            ssl_server;
     int                             ssl_fd;
     /* 
      * pointer to handshake message body, set by
