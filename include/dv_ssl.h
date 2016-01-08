@@ -35,7 +35,7 @@ typedef struct _dv_method_t {
 //    int         (*md_ssl_peek)(dv_ssl_t *s, void *buf, dv_u32 len);
     int         (*md_ssl_write)(dv_ssl_t *s, const void *buf, dv_u32 len);
     int         (*md_ssl_shutdown)(dv_ssl_t *s);
-    int         (*md_ssl_handshake)(dv_ssl_t *s, void *buf, dv_u32 len);
+    int         (*md_ssl_hello)(dv_ssl_t *s, void *buf, dv_u32 len);
     int         (*md_ssl_get_message)(dv_ssl_t *s, int type);
     int         (*md_bio_get_time)(dv_u32 *t);
     int         (*md_bio_read)(int fd, void *buf, dv_u32 len);

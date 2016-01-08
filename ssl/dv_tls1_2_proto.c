@@ -4,6 +4,7 @@
 #include "dv_ssl_loc.h"
 #include "dv_tls.h"
 #include "dv_lib.h"
+#include "dv_errno.h"
 
 static const dv_u16 dv_tls1_2_cipher_suites[] = {
     DV_TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, 
@@ -17,7 +18,7 @@ static const dv_u16 dv_tls1_2_cipher_suites[] = {
 };
 
 int
-dv_tls1_2_client_handshake(dv_ssl_t *s, void *buf, dv_u32 len)
+dv_tls1_2_client_hello(dv_ssl_t *s, void *buf, dv_u32 len)
 {
     dv_tls_record_header_t      *rh = NULL;
     dv_tls_handshake_header_t   *hh = NULL;
@@ -61,11 +62,15 @@ dv_tls1_2_client_handshake(dv_ssl_t *s, void *buf, dv_u32 len)
     tlen = sizeof(*hh) + hlen;
     rh->rh_length = DV_HTONS(tlen);
 
+    if (sizeof(*rh) + tlen > len) {
+        return DV_ERROR;
+    }
+
     return sizeof(*rh) + tlen;
 }
 
 int
-dv_tls1_2_server_handshake(dv_ssl_t *s, void *buf, dv_u32 len)
+dv_tls1_2_server_hello(dv_ssl_t *s, void *buf, dv_u32 len)
 {
     dv_tls_record_header_t  *rh = NULL;
 
@@ -76,3 +81,10 @@ dv_tls1_2_server_handshake(dv_ssl_t *s, void *buf, dv_u32 len)
     
     return sizeof(*rh) + rh->rh_length;
 }
+
+int
+dv_tls1_2_server_parse_msg(dv_ssl_t *s, void *buf, dv_u32 len)
+{
+    return DV_OK;
+}
+

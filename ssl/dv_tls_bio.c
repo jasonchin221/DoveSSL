@@ -23,7 +23,7 @@ dv_tls_bio_accept(dv_ssl_t *s)
                     goto end;
                 }
 
-                len = s->ssl_method->md_ssl_handshake(s, buf,
+                len = s->ssl_method->md_ssl_hello(s, buf,
                         s->ssl_method->md_msg_max_len);
                 if (len <= 0) {
                     goto end;
@@ -64,7 +64,7 @@ dv_tls_bio_connect(dv_ssl_t *s)
     while (1) {
         switch (s->ssl_state) {
             case DV_SSL_STATE_INIT:
-                len = s->ssl_method->md_ssl_handshake(s, buf,
+                len = s->ssl_method->md_ssl_hello(s, buf,
                         s->ssl_method->md_msg_max_len);
                 if (len <= 0) {
                     goto end;
@@ -119,7 +119,7 @@ dv_tls_bio_get_message(dv_ssl_t *s, int type)
     int         rlen = 0;
 
     rlen = s->ssl_method->md_bio_read(s->ssl_fd, s->ssl_msg, 
-            sizeof(s->ssl_msg));
+            s->ssl_method->md_msg_max_len);
     if (rlen <= 0) {
         return DV_ERROR;
     }

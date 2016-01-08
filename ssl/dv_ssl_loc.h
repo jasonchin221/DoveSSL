@@ -5,7 +5,7 @@
 #include "dv_tls.h"
 
 #define dv_implement_tls_meth_func(version, msg_max_len, func_name, \
-        accept, connect,handshake, get_time, read_f, write_f) \
+        accept, connect, hello, get_time, read_f, write_f) \
 const dv_method_t *\
 func_name(void) \
 { \
@@ -19,7 +19,7 @@ func_name(void) \
         dv_tls_bio_read, /* md_ssl_read */\
         dv_tls_bio_write, /* md_ssl_write */\
         dv_tls_bio_shutdown, /* md_ssl_shutdown */\
-        handshake, \
+        hello, \
         dv_tls_bio_get_message, \
         get_time, \
         read_f, \
