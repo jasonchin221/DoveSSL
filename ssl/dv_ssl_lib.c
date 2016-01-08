@@ -101,9 +101,9 @@ dv_ssl_shutdown(dv_ssl_t *s)
 }
 
 int
-dv_ssl_get_message(dv_ssl_t *s, int type)
+dv_ssl_get_message(dv_ssl_t *s)
 {
-    return s->ssl_method->md_ssl_get_message(s, type);
+    return s->ssl_method->md_ssl_get_message(s);
 }
 
 int

@@ -18,7 +18,7 @@ static const dv_u16 dv_tls1_2_cipher_suites[] = {
 };
 
 int
-dv_tls1_2_client_hello(dv_ssl_t *s, void *buf, dv_u32 len)
+dv_tls1_2_client_hello(dv_ssl_t *s)
 {
     dv_tls_record_header_t      *rh = NULL;
     dv_tls_handshake_header_t   *hh = NULL;
@@ -27,9 +27,10 @@ dv_tls1_2_client_hello(dv_ssl_t *s, void *buf, dv_u32 len)
     dv_u16                      *cipher_suites_len = NULL;
     dv_u16                      *ext_len = NULL;
     dv_u32                      hlen = 0;
+    dv_u32                      len = s->ssl_method->md_msg_max_len;
     dv_u16                      tlen = 0;
 
-    rh = buf;
+    rh = s->ssl_msg;
     hh = (dv_tls_handshake_header_t *)(rh + 1);
     ch = (dv_tlsv1_2_client_hello_t *)(hh + 1);
     cipher_suites_len = (dv_u16 *)(ch + 1);
@@ -70,11 +71,17 @@ dv_tls1_2_client_hello(dv_ssl_t *s, void *buf, dv_u32 len)
 }
 
 int
-dv_tls1_2_server_hello(dv_ssl_t *s, void *buf, dv_u32 len)
+dv_tls1_2_client_parse_msg(dv_ssl_t *s)
+{
+    return DV_OK;
+}
+
+int
+dv_tls1_2_server_hello(dv_ssl_t *s)
 {
     dv_tls_record_header_t  *rh = NULL;
 
-    rh = buf;
+    rh = s->ssl_msg;
     rh->rh_content_type = DV_TLS_CONTENT_TYPE_HANDSHAKE;
     rh->rh_version.pv_version = DV_TLS1_2_VERSION;
     rh->rh_length = 0;
@@ -83,7 +90,7 @@ dv_tls1_2_server_hello(dv_ssl_t *s, void *buf, dv_u32 len)
 }
 
 int
-dv_tls1_2_server_parse_msg(dv_ssl_t *s, void *buf, dv_u32 len)
+dv_tls1_2_server_parse_msg(dv_ssl_t *s)
 {
     return DV_OK;
 }

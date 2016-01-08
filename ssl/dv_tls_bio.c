@@ -8,28 +8,29 @@
 int
 dv_tls_bio_accept(dv_ssl_t *s)
 {
-    void        *buf = NULL;
     int         len = 0;
     int         wlen = 0;
     int         ret = DV_ERROR;
 
-    buf = s->ssl_msg;
-
     while (1) {
         switch (s->ssl_state) {
             case DV_SSL_STATE_INIT:
-                ret = s->ssl_method->md_ssl_get_message(s, 0);
+                ret = s->ssl_method->md_ssl_get_message(s);
                 if (ret != DV_OK) {
                     goto end;
                 }
 
-                len = s->ssl_method->md_ssl_hello(s, buf,
-                        s->ssl_method->md_msg_max_len);
+                ret = s->ssl_method->md_ssl_parse_message(s);
+                if (ret != DV_OK) {
+                    goto end;
+                }
+
+                len = s->ssl_method->md_ssl_hello(s);
                 if (len <= 0) {
                     goto end;
                 }
 
-                wlen = s->ssl_method->md_bio_write(s->ssl_fd, buf, len);
+                wlen = s->ssl_method->md_bio_write(s->ssl_fd, s->ssl_msg, len);
                 if (wlen < len) {
                     goto end;
                 }
@@ -54,22 +55,18 @@ end:
 int
 dv_tls_bio_connect(dv_ssl_t *s)
 {
-    void        *buf = NULL;
     int         len = 0;
     int         wlen = 0;
     int         ret = DV_ERROR;
 
-    buf = s->ssl_msg;
-
     while (1) {
         switch (s->ssl_state) {
             case DV_SSL_STATE_INIT:
-                len = s->ssl_method->md_ssl_hello(s, buf,
-                        s->ssl_method->md_msg_max_len);
+                len = s->ssl_method->md_ssl_hello(s);
                 if (len <= 0) {
                     goto end;
                 }
-                wlen = s->ssl_method->md_bio_write(s->ssl_fd, buf, len);
+                wlen = s->ssl_method->md_bio_write(s->ssl_fd, s->ssl_msg, len);
                 if (wlen < len) {
                     goto end;
                 }
@@ -77,7 +74,7 @@ dv_tls_bio_connect(dv_ssl_t *s)
                 s->ssl_state = DV_SSL_STATE_HELLO;
                 break;
             case DV_SSL_STATE_HELLO:
-                ret = s->ssl_method->md_ssl_get_message(s, 0);
+                ret = s->ssl_method->md_ssl_get_message(s);
                 if (ret != DV_OK) {
                     goto end;
                 }
@@ -114,7 +111,7 @@ dv_tls_bio_shutdown(dv_ssl_t *s)
 }
 
 int
-dv_tls_bio_get_message(dv_ssl_t *s, int type)
+dv_tls_bio_get_message(dv_ssl_t *s)
 {
     int         rlen = 0;
 

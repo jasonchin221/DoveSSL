@@ -5,15 +5,15 @@
 #include "dv_tls.h"
 
 #define dv_implement_tls_meth_func(version, msg_max_len, func_name, \
-        accept, connect, hello, get_time, read_f, write_f) \
+        accept, connect, hello, parse, get_time, read_f, write_f) \
 const dv_method_t *\
 func_name(void) \
 { \
     static const dv_method_t func_name##_data = { \
         version, \
         msg_max_len, \
-        dv_tls1_new, /* md_ssl_new */\
-        dv_tls1_free, /* md_ssl_free */\
+        dv_tls_new, /* md_ssl_new */\
+        dv_tls_free, /* md_ssl_free */\
         accept, \
         connect, \
         dv_tls_bio_read, /* md_ssl_read */\
@@ -21,6 +21,7 @@ func_name(void) \
         dv_tls_bio_shutdown, /* md_ssl_shutdown */\
         hello, \
         dv_tls_bio_get_message, \
+        parse, \
         get_time, \
         read_f, \
         write_f, \

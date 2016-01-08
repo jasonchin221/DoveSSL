@@ -35,8 +35,9 @@ typedef struct _dv_method_t {
 //    int         (*md_ssl_peek)(dv_ssl_t *s, void *buf, dv_u32 len);
     int         (*md_ssl_write)(dv_ssl_t *s, const void *buf, dv_u32 len);
     int         (*md_ssl_shutdown)(dv_ssl_t *s);
-    int         (*md_ssl_hello)(dv_ssl_t *s, void *buf, dv_u32 len);
-    int         (*md_ssl_get_message)(dv_ssl_t *s, int type);
+    int         (*md_ssl_hello)(dv_ssl_t *s);
+    int         (*md_ssl_get_message)(dv_ssl_t *s);
+    int         (*md_ssl_parse_message)(dv_ssl_t *s);
     int         (*md_bio_get_time)(dv_u32 *t);
     int         (*md_bio_read)(int fd, void *buf, dv_u32 len);
     int         (*md_bio_write)(int fd, const void *buf, dv_u32 len);
@@ -56,20 +57,13 @@ extern int dv_library_init(void);
 extern void dv_add_all_algorighms(void);
 extern void dv_load_error_strings(void);
 
-extern int dv_tls_bio_accept(dv_ssl_t *s);
-extern int dv_tls_bio_connect(dv_ssl_t *s);
-extern int dv_tls_bio_read(dv_ssl_t *s, void *buf, dv_u32 len);
-extern int dv_tls_bio_write(dv_ssl_t *s, const void *buf, dv_u32 len);
-extern int dv_tls_bio_shutdown(dv_ssl_t *s);
-extern int dv_tls_bio_get_message(dv_ssl_t *s, int type);
-
 extern int dv_ssl_accept(dv_ssl_t *s);
 extern int dv_ssl_connect(dv_ssl_t *s);
 extern int dv_ssl_set_fd(dv_ssl_t *s, int fd);
 extern int dv_ssl_read(dv_ssl_t *s, void *buf, dv_u32 len);
 extern int dv_ssl_write(dv_ssl_t *s, const void *buf, dv_u32 len);
 extern int dv_ssl_shutdown(dv_ssl_t *s);
-extern int dv_ssl_get_message(dv_ssl_t *s, int type);
+extern int dv_ssl_get_message(dv_ssl_t *s);
 
 extern int dv_undefined_function(dv_ssl_t *s);
 
