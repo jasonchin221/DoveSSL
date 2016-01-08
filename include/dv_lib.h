@@ -32,4 +32,13 @@
         memcpy(dest, &tmp[sizeof(tmp) - sizeof(dest)], sizeof(dest)); \
     } while (0)
 
+#define DV_GET_LENGTH(value, length) \
+    do { \
+        char            tmp[sizeof(value)] = {0}; \
+        memcpy(&tmp[sizeof(tmp) - sizeof(length)], length, sizeof(length)); \
+        memcpy(&value, tmp, sizeof(tmp)); \
+        value = DV_NTOHL(value); \
+    } while (0)
+
+
 #endif

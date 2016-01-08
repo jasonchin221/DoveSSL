@@ -5,8 +5,8 @@
 #include "dv_tls.h"
 
 typedef struct _dv_msg_parse_t {
-    DV_TLS_CONTENT_TYPE_E   mp_type;
-    int                     (*mp_parse)(dv_ssl_t *s, void *buf, dv_u32 len);
+    dv_u8       mp_type;
+    int         (*mp_parse)(dv_ssl_t *s, void *buf, dv_u32 len);
 } dv_msg_parse_t;
 
 #define dv_implement_tls_meth_func(version, msg_max_len, func_name, \
@@ -37,7 +37,11 @@ func_name(void) \
 
 extern void dv_tls_get_cipher_suites(dv_u16 *dest, 
             const dv_u16 *suites, dv_u32 num);
+extern bool dv_tls_match_cipher_suites(dv_u16 dest, 
+            const dv_u16 *suites, dv_u32 num);
 extern int dv_tls_parse_record(dv_ssl_t *s, const dv_msg_parse_t *parser, 
             dv_u32 num);
+extern int dv_tls_parse_handshake(dv_ssl_t *s, const dv_msg_parse_t *parser,
+            dv_u32 num, void *buf, int total_len);
 
 #endif

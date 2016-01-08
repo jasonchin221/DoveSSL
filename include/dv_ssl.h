@@ -20,8 +20,9 @@ typedef struct _dv_ssl_t {
      * pointer to handshake message body, set by
      * md_ssl_get_message 
      */
-    void                             *ssl_msg;
-    int                              ssl_mlen;
+    void                            *ssl_msg;
+    int                             ssl_mlen;
+    dv_u16                          ssl_cipher_suite;
 } dv_ssl_t;
 
 typedef struct _dv_method_t {

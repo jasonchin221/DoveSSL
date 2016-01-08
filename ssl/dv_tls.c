@@ -38,6 +38,21 @@ dv_tls_get_cipher_suites(dv_u16 *dest, const dv_u16 *suites, dv_u32 num)
     }
 }
 
+bool
+dv_tls_match_cipher_suites(dv_u16 dest, const dv_u16 *suites, dv_u32 num)
+{
+    int             i = 0;
+
+    for (i = 0; i < num; i++) {
+        if (dest == suites[i]) {
+            return DV_TRUE;
+        }
+    }
+
+    return DV_FALSE;
+}
+
+
 static int
 dv_tls_version_check(dv_ssl_t *s, dv_u16 version)
 {
@@ -78,6 +93,7 @@ dv_tls_parse_record(dv_ssl_t *s, const dv_msg_parse_t *parser, dv_u32 num)
     if (total_len <= 0) {
         return DV_ERROR;
     }
+
     while (total_len > 0) {
         ret = dv_tls_version_check(s, rh->rh_version.pv_version);
         if (ret != DV_OK) {
@@ -85,7 +101,7 @@ dv_tls_parse_record(dv_ssl_t *s, const dv_msg_parse_t *parser, dv_u32 num)
         }
 
         len = DV_NTOHS(rh->rh_length);
-        if (len  > total_len) {
+        if (len > total_len) {
             DV_PRINT("Size error!(len is %u, total_len is %u)\n", 
                     len, total_len);
             return DV_ERROR;
@@ -97,6 +113,39 @@ dv_tls_parse_record(dv_ssl_t *s, const dv_msg_parse_t *parser, dv_u32 num)
         }
         total_len -= len;
         rh = (void *)rh + len;
+    }
+
+    return DV_OK;
+}
+
+int
+dv_tls_parse_handshake(dv_ssl_t *s, const dv_msg_parse_t *parser, dv_u32 num,
+            void *buf, int total_len)
+{
+    dv_tls_handshake_header_t   *hh = NULL;
+    dv_u32                      len = 0;
+    int                         ret = DV_OK;
+
+    hh = buf;
+    total_len -= sizeof(*hh);
+    if (total_len <= 0) {
+        return DV_ERROR;
+    }
+
+    while (total_len > 0) {
+        DV_GET_LENGTH(len, hh->hh_length);
+        if (len > total_len) {
+            DV_PRINT("Size error!(len is %u, total_len is %u)\n", 
+                    len, total_len);
+            return DV_ERROR;
+        }
+        ret = dv_tls_parse_msg(s, parser, num, hh->hh_msg_type,
+                hh + 1, len);
+        if (ret != DV_OK) {
+            return DV_ERROR;
+        }
+        total_len -= len;
+        hh = (void *)hh + len;
     }
 
     return DV_OK;
