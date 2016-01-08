@@ -20,6 +20,8 @@
 
 #define DV_HTONS(a)     htons(a)
 #define DV_HTONL(a)     htonl(a)
+#define DV_NTOHS(a)     ntohs(a)
+#define DV_NTOHL(a)     ntohl(a)
 
 #define DV_SET_LENGTH(dest, value) \
     do { \

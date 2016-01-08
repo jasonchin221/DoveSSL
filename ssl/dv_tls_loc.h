@@ -1,11 +1,16 @@
-#ifndef __DV_SSL_LOC_H__
-#define __DV_SSL_LOC_H__
+#ifndef __DV_TLS_LOC_H__
+#define __DV_TLS_LOC_H__
 
 #include "dv_ssl.h"
 #include "dv_tls.h"
 
+typedef struct _dv_msg_parse_t {
+    DV_TLS_CONTENT_TYPE_E   mp_type;
+    int                     (*mp_parse)(dv_ssl_t *s, void *buf, dv_u32 len);
+} dv_msg_parse_t;
+
 #define dv_implement_tls_meth_func(version, msg_max_len, func_name, \
-        accept, connect, hello, parse, get_time, read_f, write_f) \
+        accept, connect, hello, parser, get_time, read_f, write_f) \
 const dv_method_t *\
 func_name(void) \
 { \
@@ -21,7 +26,7 @@ func_name(void) \
         dv_tls_bio_shutdown, /* md_ssl_shutdown */\
         hello, \
         dv_tls_bio_get_message, \
-        parse, \
+        parser, \
         get_time, \
         read_f, \
         write_f, \
@@ -32,5 +37,7 @@ func_name(void) \
 
 extern void dv_tls_get_cipher_suites(dv_u16 *dest, 
             const dv_u16 *suites, dv_u32 num);
+extern int dv_tls_parse_record(dv_ssl_t *s, const dv_msg_parse_t *parser, 
+            dv_u32 num);
 
 #endif

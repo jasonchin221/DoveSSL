@@ -1,10 +1,13 @@
 
 #include "dv_crypto.h"
 #include "dv_ssl.h"
-#include "dv_ssl_loc.h"
+#include "dv_tls_loc.h"
 #include "dv_tls.h"
 #include "dv_lib.h"
 #include "dv_errno.h"
+#include "dv_tls1_2_proto.h"
+
+static int dv_tls1_2_client_parse_handshake(dv_ssl_t *s, void *buf, dv_u32 len);
 
 static const dv_u16 dv_tls1_2_cipher_suites[] = {
     DV_TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, 
@@ -16,6 +19,21 @@ static const dv_u16 dv_tls1_2_cipher_suites[] = {
     DV_TLS_RSA_WITH_AES_128_GCM_SHA256,
     DV_TLS_RSA_WITH_AES_128_CBC_SHA256,
 };
+
+static const dv_msg_parse_t dv_tls1_2_parse_msg[] = {
+    {
+        DV_TLS_CONTENT_TYPE_HANDSHAKE,
+        dv_tls1_2_client_parse_handshake,
+    },
+};
+
+#define dv_tls1_2_client_hello_head_set(buf, rh, hh, ch, suites) \
+    do { \
+        rh = buf; \
+        hh = (dv_tls_handshake_header_t *)(rh + 1); \
+        ch = (dv_tlsv1_2_client_hello_t *)(hh + 1); \
+        suites = (dv_u16 *)(ch + 1); \
+    } while (0)
 
 int
 dv_tls1_2_client_hello(dv_ssl_t *s)
@@ -30,10 +48,7 @@ dv_tls1_2_client_hello(dv_ssl_t *s)
     dv_u32                      len = s->ssl_method->md_msg_max_len;
     dv_u16                      tlen = 0;
 
-    rh = s->ssl_msg;
-    hh = (dv_tls_handshake_header_t *)(rh + 1);
-    ch = (dv_tlsv1_2_client_hello_t *)(hh + 1);
-    cipher_suites_len = (dv_u16 *)(ch + 1);
+    dv_tls1_2_client_hello_head_set(s->ssl_msg, rh, hh, ch, cipher_suites_len);
     cpre = (dv_u8 *)(cipher_suites_len + 
             DV_ARRAY_SIZE(dv_tls1_2_cipher_suites) + 1);
     ext_len = (dv_u16 *)(cpre + 2);
@@ -70,6 +85,9 @@ dv_tls1_2_client_hello(dv_ssl_t *s)
     return sizeof(*rh) + tlen;
 }
 
+/*
+ * function: parse message from server
+ */
 int
 dv_tls1_2_client_parse_msg(dv_ssl_t *s)
 {
@@ -89,9 +107,23 @@ dv_tls1_2_server_hello(dv_ssl_t *s)
     return sizeof(*rh) + rh->rh_length;
 }
 
-int
-dv_tls1_2_server_parse_msg(dv_ssl_t *s)
+static int
+dv_tls1_2_client_parse_handshake(dv_ssl_t *s, void *buf, dv_u32 len)
 {
+#if 0
+    dv_tls_handshake_header_t   *hh = NULL;
+    dv_tlsv1_2_client_hello_t   *ch = NULL;
+    dv_u16                      *cipher_suites_len = NULL;
+    int                         ret = DV_OK;
+#endif
+
     return DV_OK;
+}
+
+int 
+dv_tls1_2_parse_message(dv_ssl_t *s)
+{
+    return dv_tls_parse_record(s, dv_tls1_2_parse_msg,
+            DV_ARRAY_SIZE(dv_tls1_2_parse_msg));
 }
 

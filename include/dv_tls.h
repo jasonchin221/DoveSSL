@@ -23,6 +23,7 @@
 #define DV_TLS_RSA_WITH_AES_128_CBC_SHA256              (0x003c)
 
 typedef enum _DV_TLS_CONTENT_TYPE_E {
+    DV_TLS_CHANGE_CIPHER_SPEC = 20,
     DV_TLS_CONTENT_TYPE_ALERT = 21,
     DV_TLS_CONTENT_TYPE_HANDSHAKE = 22,
     DV_TLS_CONTENT_TYPE_APPLICATION_DATA = 23,
@@ -66,36 +67,21 @@ typedef struct _dv_tls_record_header_t {
     dv_u16                  rh_length;
 } dv_tls_record_header_t;
 
-
 typedef struct _dv_tls_handshake_header_t {
     dv_u8                   hh_msg_type;
     dv_u8                   hh_length[3];
 } dv_tls_handshake_header_t;
 
-typedef struct _dv_tlsv1_2_random_t {
-    dv_u32      rd_gmt_unix_time;
-    dv_u8       rd_random_bytes[DV_TLS_RANDOM_BYTES_LEN];
-} dv_tlsv1_2_random_t;
-
-typedef struct _dv_tlsv1_2_client_hello_t {
-    dv_proto_version_t          ch_version;
-    dv_tlsv1_2_random_t         ch_random;
-    dv_u8                       ch_session_id;
-} dv_tlsv1_2_client_hello_t;
-
+extern int dv_tls_new(dv_ssl_t *s);
+extern void dv_tls_free(dv_ssl_t *s);
 extern int dv_tls_bio_accept(dv_ssl_t *s);
 extern int dv_tls_bio_connect(dv_ssl_t *s);
 extern int dv_tls_bio_read(dv_ssl_t *s, void *buf, dv_u32 len);
 extern int dv_tls_bio_write(dv_ssl_t *s, const void *buf, dv_u32 len);
 extern int dv_tls_bio_shutdown(dv_ssl_t *s);
 extern int dv_tls_bio_get_message(dv_ssl_t *s);
+
 extern const dv_method_t *dv_tls_v1_2_client_method(void);  /* TLSv1.2 */
 extern const dv_method_t *dv_tls_v1_2_server_method(void);  /* TLSv1.2 */
-extern int dv_tls_new(dv_ssl_t *s);
-extern void dv_tls_free(dv_ssl_t *s);
-extern int dv_tls1_2_client_hello(dv_ssl_t *s);
-extern int dv_tls1_2_server_hello(dv_ssl_t *s);
-extern int dv_tls1_2_client_parse_msg(dv_ssl_t *s);
-extern int dv_tls1_2_server_parse_msg(dv_ssl_t *s);
 
 #endif
