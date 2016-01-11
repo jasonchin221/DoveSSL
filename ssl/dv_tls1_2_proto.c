@@ -94,7 +94,7 @@ dv_tls1_2_client_hello(dv_ssl_t *s)
     hlen += sizeof(*cipher_suites_len ) + *cipher_suites_len; 
     *cipher_suites_len = DV_HTONS(*cipher_suites_len);
 
-    ch->ch_version.pv_version = DV_HTONS(DV_TLS1_2_VERSION);
+    ch->ch_version.pv_version = DV_HTONS(s->ssl_method->md_version);
     s->ssl_method->md_bio_get_time(&ch->ch_random.rd_gmt_unix_time);
     hlen += sizeof(dv_tlsv1_2_client_hello_t);
 
@@ -109,31 +109,61 @@ dv_tls1_2_client_hello(dv_ssl_t *s)
     return sizeof(*rh) + tlen;
 }
 
-int
-dv_tls1_2_server_hello(dv_ssl_t *s)
+static int
+_dv_tls1_2_server_hello(dv_ssl_t *s, void *buf, int len)
 {
     dv_tls_record_header_t      *rh = NULL;
     dv_tls_handshake_header_t   *hh = NULL;
     dv_tlsv1_2_server_hello_t   *sh = NULL;
     dv_u32                      hlen = 0;
-    dv_u16                      len = 0;
+    dv_u16                      mlen = 0;
 
-    rh = s->ssl_msg;
+    if (len < sizeof(*rh) + sizeof(*sh) + sizeof(hh)) {
+        return DV_ERROR;
+    }
+
+    rh = buf;
     hh = (dv_tls_handshake_header_t *)(rh + 1);
     sh = (dv_tlsv1_2_server_hello_t *)(hh + 1);
 
     s->ssl_method->md_bio_get_time(&sh->sh_random.rd_gmt_unix_time);
-    sh->sh_version.pv_version = DV_HTONS(DV_TLS1_2_VERSION);
+    sh->sh_version.pv_version = DV_HTONS(s->ssl_method->md_version);
     sh->sh_cipher_suite = DV_HTONS(s->ssl_cipher_suite);
     sh->sh_session_id = 0;
     sh->sh_compress_method = 0;
     sh->sh_ext_len = 0;
     hlen += sizeof(*sh);
 
-    len = dv_tls1_2_set_handshake_header(rh, hh, DV_TLS1_2_VERSION,
+    mlen = dv_tls1_2_set_handshake_header(rh, hh, s->ssl_method->md_version,
         DV_TLS_HANDSHAKE_TYPE_SERVER_HELLO, hlen);
     
-    return sizeof(*rh) + len;
+    return sizeof(*rh) + mlen;
+}
+
+
+int
+dv_tls1_2_server_hello(dv_ssl_t *s)
+{
+    void                *buf = NULL;
+    int                 mlen = 0;
+    int                 tlen = 0;
+
+    buf = s->ssl_msg;
+    tlen = s->ssl_method->md_msg_max_len;
+    mlen = _dv_tls1_2_server_hello(s, buf, tlen);
+    if (mlen <= 0) {
+        return DV_ERROR;
+    }
+    buf += mlen;
+    tlen -= mlen;
+
+    mlen = dv_tls1_2_set_handshake_header(buf, 
+            buf + sizeof(dv_tls_record_header_t), 
+            s->ssl_method->md_version,
+            DV_TLS_HANDSHAKE_TYPE_SERVER_HELLO_DONE, 0);
+    
+    return s->ssl_method->md_msg_max_len - tlen + mlen + 
+        sizeof(dv_tls_record_header_t);
 }
 
 static int

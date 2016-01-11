@@ -26,8 +26,8 @@ typedef struct _dv_ssl_t {
 } dv_ssl_t;
 
 typedef struct _dv_method_t {
-    dv_u32      md_version;
-    dv_u32      md_msg_max_len;
+    dv_u16      md_version;
+    dv_u16      md_msg_max_len;
     int         (*md_ssl_new)(dv_ssl_t *s);
     void        (*md_ssl_free)(dv_ssl_t *s);
     int         (*md_ssl_accept)(dv_ssl_t *s);
