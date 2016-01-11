@@ -1,5 +1,5 @@
 lib_LTLIBRARIES = libdove_crypto.la
-libdove_crypto_la_SOURCES = dv_mem.c
+libdove_crypto_la_SOURCES = dv_mem.c pem/dv_pem.c
 libdove_crypto_la_LDFLAGS = -version-info 1
 
 AM_CPPFLAGS = -I$(srcdir)/../include

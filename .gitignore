@@ -36,3 +36,4 @@ m4/
 missing
 ssl_test
 config.h.in~
+pem_test
