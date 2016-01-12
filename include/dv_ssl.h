@@ -17,6 +17,7 @@ typedef struct _dv_ssl_t {
     bool                            ssl_server;
     int                             ssl_fd;
     void                            *ssl_ca;
+    dv_u32                          ssl_ca_len;
     /* 
      * pointer to handshake message body, set by
      * md_ssl_get_message 
@@ -49,6 +50,7 @@ typedef struct _dv_method_t {
 typedef struct _dv_ssl_ctx_t {
     const dv_method_t   *sc_method;
     void                *sc_ca;
+    dv_u32              sc_ca_len;
 } dv_ssl_ctx_t; 
 
 extern dv_ssl_ctx_t *dv_ssl_ctx_new(const dv_method_t *meth);

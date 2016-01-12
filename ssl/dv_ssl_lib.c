@@ -22,6 +22,10 @@ dv_ssl_ctx_new(const dv_method_t *meth)
 void
 dv_ssl_ctx_free(dv_ssl_ctx_t *ctx)
 {
+    if (ctx->sc_ca != NULL) {
+        dv_free(ctx->sc_ca);
+    }
+
     dv_free(ctx);
 }
 
@@ -40,6 +44,9 @@ dv_ssl_new(dv_ssl_ctx_t *ctx)
         goto err;
     }
 
+    ssl->ssl_ca = ctx->sc_ca;
+    ctx->sc_ca = NULL;
+    ssl->ssl_ca_len = ctx->sc_ca_len;
     ssl->ssl_state = DV_SSL_STATE_INIT;
 
     return ssl;

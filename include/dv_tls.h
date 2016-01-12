@@ -8,7 +8,7 @@
 #define DV_TLS1_3_VERSION                   0x0304
 #define DV_TLS_MAX_VERSION                  DV_TLS1_3_VERSION
 
-#define DV_TLS_MSG_MAX_LEN                  1024
+#define DV_TLS_MSG_MAX_LEN                  1500
 
 #define DV_TLS_RANDOM_BYTES_LEN             28
 

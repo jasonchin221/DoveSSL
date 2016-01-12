@@ -30,6 +30,8 @@ dv_ssl_ctx_use_certificate_file(dv_ssl_ctx_t *ctx,
         return DV_ERROR;
     }
 
+    ctx->sc_ca_len = len;
+
     return DV_OK;
 }
 
