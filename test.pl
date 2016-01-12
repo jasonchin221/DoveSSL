@@ -17,6 +17,10 @@ my $curr_dir = getcwd();
 my $test_cmd = $curr_dir."/"."$test_dir/ssl_test";
 my $ser_ca = $curr_dir."/"."$test_dir/pem/ser_cacert.pem";
 my $ser_key = $curr_dir."/"."$test_dir/pem/ser_privkey.pem";
+my $cli_ca = $curr_dir."/"."$test_dir/pem/cli_cacert.pem";
+my $cli_key = $curr_dir."/"."$test_dir/pem/cli_privkey.pem";
+my $ca = "$ser_ca,$cli_ca";
+my $key = "$ser_key,$cli_key";
 my $port = 445;
 my $cmd_param = "cmd_param";
 my $test_info = "test_info";
@@ -24,19 +28,19 @@ my $cmd_str;
 
 my @testcase = (
     {
-        $cmd_param => "-c $ser_ca -k $ser_key -p $port",
+        $cmd_param => "-c $ca -k $key -p $port",
         $test_info => "DoveSSL--->DoveSSL",
     },
 #    {
-#        $cmd_param => "-c $ser_ca -k $ser_key -p $port -C",
+#        $cmd_param => "-c $ca -k $key -p $port -C",
 #        $test_info => "OpenSSL--->DoveSSL",
 #    },
 #    {
-#        $cmd_param => "-c $ser_ca -k $ser_key -p $port -S",
+#        $cmd_param => "-c $ca -k $key -p $port -S",
 #        $test_info => "DoveSSL--->OpenSSL",
 #    },
     {
-        $cmd_param => "-c $ser_ca -k $ser_key -p $port -C -S",
+        $cmd_param => "-c $ca -k $key -p $port -C -S",
         $test_info => "OpenSSL--->OpenSSL",
     },
 );

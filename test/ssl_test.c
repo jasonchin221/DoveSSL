@@ -667,6 +667,8 @@ main(int argc, char **argv)
     char                    *port = DV_DEF_IP_ADDRESS;
     char                    *cf = NULL;
     char                    *key = NULL;
+    char                    *client_cf = NULL;
+    char                    *client_key = NULL;
 
     while((c = getopt_long(argc, argv, 
                     dv_optstring,  dv_long_opts, NULL)) != -1) {
@@ -729,9 +731,22 @@ main(int argc, char **argv)
         return -DV_ERROR;
     }
 
+    client_cf = strstr(cf, ",");
+    if (client_cf == NULL) {
+        fprintf(stderr, "Client certificate not set!\n");
+        return -DV_ERROR;
+    }
+    *client_cf++ = 0;
+    client_key = strstr(key, ",");
+    if (client_key == NULL) {
+        fprintf(stderr, "Client key not set!\n");
+        return -DV_ERROR;
+    }
+    *client_key++ = 0;
+
     if (pid > 0) {  /* Parent */
         close(fd[0]);
-        return -dv_client(fd[1], &addr, cf, key, client_suite);
+        return -dv_client(fd[1], &addr, client_cf, client_key, client_suite);
     }
 
     /* Child */

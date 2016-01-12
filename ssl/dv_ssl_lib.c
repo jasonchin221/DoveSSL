@@ -55,6 +55,10 @@ dv_ssl_free(dv_ssl_t *s)
         s->ssl_method->md_ssl_free(s);
     }
 
+    if (s->ssl_ca != NULL) {
+        dv_free(s->ssl_ca);
+    }
+
     dv_free(s);
 }
 

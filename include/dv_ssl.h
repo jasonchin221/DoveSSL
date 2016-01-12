@@ -16,6 +16,7 @@ typedef struct _dv_ssl_t {
     const struct _dv_method_t       *ssl_method;
     bool                            ssl_server;
     int                             ssl_fd;
+    void                            *ssl_ca;
     /* 
      * pointer to handshake message body, set by
      * md_ssl_get_message 
@@ -41,11 +42,13 @@ typedef struct _dv_method_t {
     int         (*md_ssl_parse_message)(dv_ssl_t *s);
     int         (*md_bio_get_time)(dv_u32 *t);
     int         (*md_bio_read)(int fd, void *buf, dv_u32 len);
+    int         (*md_bio_read_file)(const char *file, void **data);
     int         (*md_bio_write)(int fd, const void *buf, dv_u32 len);
 } dv_method_t;
 
 typedef struct _dv_ssl_ctx_t {
     const dv_method_t   *sc_method;
+    void                *sc_ca;
 } dv_ssl_ctx_t; 
 
 extern dv_ssl_ctx_t *dv_ssl_ctx_new(const dv_method_t *meth);

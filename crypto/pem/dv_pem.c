@@ -5,6 +5,9 @@
 #include "dv_types.h"
 #include "dv_assert.h"
 
+#define DV_PEM_FORMAT_HEADER    "-----BEGIN"
+#define DV_PEM_FORMAT_END       "-----"
+
 #define dv_conv_ascii2bin(a)       (dv_data_ascii2bin[(a)&0x7f])
 
 #define DV_B64_EOLN                0xF0
@@ -35,7 +38,7 @@ static const dv_u8 dv_data_ascii2bin[128] = {
 
 
 static void
-dv_b64_decode_init(dv_pem_decode_ctx_t *ctx)
+dv_b64_decode_init(dv_decode_ctx_t *ctx)
 {
     ctx->pd_length = 30;
     ctx->pd_num = 0;
@@ -49,7 +52,7 @@ dv_b64_decode_init(dv_pem_decode_ctx_t *ctx)
  *  1 for full line
  */
 int 
-dv_b64_decode_update(dv_pem_decode_ctx_t *ctx, dv_u8 *out, int *outl,
+dv_b64_decode_update(dv_decode_ctx_t *ctx, dv_u8 *out, int *outl,
                      const dv_u8 *in, int inl)
 {
     int seof = -1, eof = 0, rv = -1, ret = 0, i, v, tmp, n, ln, exp_nl;
@@ -237,7 +240,7 @@ dv_b64_decode_block(dv_u8 *t, const dv_u8 *f, int n)
 }
 
 int 
-dv_b64_decode_final(dv_pem_decode_ctx_t *ctx, dv_u8 *out, int *outl)
+dv_b64_decode_final(dv_decode_ctx_t *ctx, dv_u8 *out, int *outl)
 {
     int     i = 0;
 
@@ -257,7 +260,7 @@ dv_b64_decode_final(dv_pem_decode_ctx_t *ctx, dv_u8 *out, int *outl)
 
 
 int
-dv_pem_decode(dv_pem_decode_ctx_t *ctx, void *out, int *outl, void *in, int inl)
+dv_b64_decode(dv_decode_ctx_t *ctx, void *out, int *outl, void *in, int inl)
 {
     int     len = 0;
     int     ret = DV_ERROR;
@@ -280,4 +283,25 @@ dv_pem_decode(dv_pem_decode_ctx_t *ctx, void *out, int *outl, void *in, int inl)
     return len;
 }
 
+#if 0
+int
+dv_pem_decode(char *buf, int len, )
+{
+    head = (unsigned char *)strstr((char *)buf, DV_PEM_FORMAT_HEADER);
+    if (head == NULL || head != buf) {
+        printf("Format1 error!\n");
+        goto out;
+    }
 
+    head = (unsigned char *)strstr((char *)head + strlen(DV_PEM_FORMAT_HEADER),
+            DV_PEM_FORMAT_END);
+    if (head == NULL || head[sizeof(DV_PEM_FORMAT_END) - 1] != '\n') {
+        printf("Format2 error!\n");
+        goto out;
+    }
+
+    head += sizeof(DV_PEM_FORMAT_END);
+    rlen -= sizeof(DV_PEM_FORMAT_END);
+ 
+}
+#endif

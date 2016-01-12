@@ -29,6 +29,7 @@ func_name(void) \
         parser, \
         get_time, \
         read_f, \
+        dv_bio_read_file_linux, \
         write_f, \
     }; \
     \

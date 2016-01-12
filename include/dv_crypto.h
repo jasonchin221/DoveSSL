@@ -7,16 +7,16 @@
 
 #define DV_PEM_DATA_LEN     80
 
-typedef struct _dv_pem_decode_ctx_t {
+typedef struct _dv_decode_ctx_t {
     int         pd_num;
     int         pd_length;
     dv_u8       pd_data[DV_PEM_DATA_LEN];
     int         pd_line_num;
     int         pd_expect_nl;
-} dv_pem_decode_ctx_t;
+} dv_decode_ctx_t;
 
 extern int dv_b64_decode_block(dv_u8 *t, const dv_u8 *f, int n);
-extern int dv_pem_decode(dv_pem_decode_ctx_t *ctx, void *out, int *outl,
+extern int dv_b64_decode(dv_decode_ctx_t *ctx, void *out, int *outl,
             void *in, int inl);
 
 extern void *dv_crypto_malloc(size_t num, const char *file, int line);

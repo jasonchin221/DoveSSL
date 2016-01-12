@@ -5,6 +5,8 @@
 #include <fcntl.h>
 #include <openssl/evp.h>
 
+#include "dv_crypto.h"
+
 int
 dv_test_pem_decode(EVP_ENCODE_CTX *ctx, void *out, int *outl, void *in, int inl)
 {
@@ -38,6 +40,7 @@ dv_test_pem_decode(EVP_ENCODE_CTX *ctx, void *out, int *outl, void *in, int inl)
 int main(void)
 {
     EVP_ENCODE_CTX  dctx;
+    dv_decode_ctx_t ctx;
     struct stat     st;
     int             outl;
     int             ret = -1;
@@ -95,7 +98,7 @@ int main(void)
     }
 
     len = ret;
-    ret = dv_test_pem_decode(&dctx, out2, &outl, head, rlen);
+    ret = dv_b64_decode(&ctx, out2, &outl, head, rlen);
     if (ret < 0) {
         printf("Pem decode err!\n");
         goto out;
