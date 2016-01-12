@@ -5,8 +5,9 @@
 #include "dv_tls.h"
 #include "dv_lib.h"
 #include "dv_errno.h"
-#include "dv_print.h"
+#include "dv_debug.h"
 #include "dv_tls1_2_proto.h"
+#include "dv_assert.h"
 
 static int dv_tls1_2_parse_handshake(dv_ssl_t *s, void *buf, dv_u32 len);
 static int dv_tls1_2_parse_client_hello(dv_ssl_t *s, void *buf, dv_u32 len);
@@ -60,7 +61,7 @@ dv_tls1_2_set_handshake_header(dv_tls_record_header_t *rh,
     tlen = sizeof(*hh) + hlen;
     rh->rh_length = DV_HTONS(tlen);
 
-    return tlen;
+    return tlen + sizeof(*rh);
 }
 
 int
@@ -102,11 +103,9 @@ dv_tls1_2_client_hello(dv_ssl_t *s)
     tlen = dv_tls1_2_set_handshake_header(rh, hh, DV_TLS1_0_VERSION,
         DV_TLS_HANDSHAKE_TYPE_CLIENT_HELLO, hlen);
 
-    if (sizeof(*rh) + tlen > len) {
-        return DV_ERROR;
-    }
+    dv_assert(tlen <= len);
 
-    return sizeof(*rh) + tlen;
+    return tlen;
 }
 
 static int
@@ -136,8 +135,10 @@ _dv_tls1_2_server_hello(dv_ssl_t *s, void *buf, int len)
 
     mlen = dv_tls1_2_set_handshake_header(rh, hh, s->ssl_method->md_version,
         DV_TLS_HANDSHAKE_TYPE_SERVER_HELLO, hlen);
+
+    dv_assert(mlen <= len);
     
-    return sizeof(*rh) + mlen;
+    return mlen;
 }
 
 
@@ -161,9 +162,10 @@ dv_tls1_2_server_hello(dv_ssl_t *s)
             buf + sizeof(dv_tls_record_header_t), 
             s->ssl_method->md_version,
             DV_TLS_HANDSHAKE_TYPE_SERVER_HELLO_DONE, 0);
+
+    dv_assert(mlen <= tlen);
     
-    return s->ssl_method->md_msg_max_len - tlen + mlen + 
-        sizeof(dv_tls_record_header_t);
+    return s->ssl_method->md_msg_max_len - tlen + mlen;
 }
 
 static int
@@ -175,19 +177,19 @@ dv_tls1_2_parse_client_hello(dv_ssl_t *s, void *buf, dv_u32 len)
     int                         i = 0;
 
     if (s->ssl_state != DV_SSL_STATE_INIT) {
-        DV_PRINT("Err: Can't receive Client Hello in state(%d)\n",
+        DV_DEBUG("Err: Can't receive Client Hello in state(%d)\n",
                 s->ssl_state);
         return DV_ERROR;
     }
 
     if (s->ssl_server != DV_TRUE) {
-        DV_PRINT("Err: Client receive Client Hello\n");
+        DV_DEBUG("Err: Client receive Client Hello\n");
         return DV_ERROR;
     }
 
     ch = buf;
     if (DV_NTOHS(ch->ch_version.pv_version) != DV_TLS1_2_VERSION) {
-        DV_PRINT("TLS Client Hello version(%X) invalid!\n", 
+        DV_DEBUG("TLS Client Hello version(%X) invalid!\n", 
                 DV_NTOHS(ch->ch_version.pv_version));
         return DV_ERROR;
     }

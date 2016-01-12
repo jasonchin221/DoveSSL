@@ -1,7 +1,8 @@
+#include <string.h>
 
 #include "dv_crypto.h"
 #include "dv_errno.h"
-#include "dv_print.h"
+#include "dv_debug.h"
 #include "dv_types.h"
 #include "dv_assert.h"
 
@@ -269,39 +270,59 @@ dv_b64_decode(dv_decode_ctx_t *ctx, void *out, int *outl, void *in, int inl)
 
     ret = dv_b64_decode_update(ctx, out, outl, in, inl);
     if (ret < 0) {
-        DV_PRINT("EVP_DecodeUpdate err!\n");
+        DV_DEBUG("EVP_DecodeUpdate err!\n");
         return DV_ERROR;
     }
 
     len = *outl;
     ret = dv_b64_decode_final(ctx, out, outl);
     if (ret < 0) {
-        DV_PRINT("EVP_DecodeUpdate err!\n");
+        DV_DEBUG("EVP_DecodeUpdate err!\n");
         return DV_ERROR;
     }
 
     return len;
 }
 
-#if 0
 int
-dv_pem_decode(char *buf, int len, )
+dv_pem_decode(void **out, char *buf, int len)
 {
-    head = (unsigned char *)strstr((char *)buf, DV_PEM_FORMAT_HEADER);
+    dv_decode_ctx_t     ctx = {};
+    char                *head = NULL;
+    int                 outl = 0;
+    int                 size = 0;
+    int                 ret = 0;
+
+    head = strstr(buf, DV_PEM_FORMAT_HEADER);
     if (head == NULL || head != buf) {
-        printf("Format1 error!\n");
-        goto out;
+        DV_DEBUG("Format1 error!\n");
+        return DV_ERROR;
     }
 
-    head = (unsigned char *)strstr((char *)head + strlen(DV_PEM_FORMAT_HEADER),
+    head = strstr(head + strlen(DV_PEM_FORMAT_HEADER),
             DV_PEM_FORMAT_END);
     if (head == NULL || head[sizeof(DV_PEM_FORMAT_END) - 1] != '\n') {
-        printf("Format2 error!\n");
-        goto out;
+        DV_DEBUG("Format2 error!\n");
+        return DV_ERROR;
     }
 
     head += sizeof(DV_PEM_FORMAT_END);
-    rlen -= sizeof(DV_PEM_FORMAT_END);
+    len -= sizeof(DV_PEM_FORMAT_END);
  
+    size = (len*3)/4;
+    *out = dv_malloc(size);
+    if (*out == NULL) {
+        return DV_ERROR;
+    }
+    ret = dv_b64_decode(&ctx, *out, &outl, head, len);
+    if (ret <= 0) {
+        DV_DEBUG("Pem decode err!\n");
+        dv_free(*out);
+        return DV_ERROR;
+    }
+ 
+    dv_assert(ret <= size);
+
+    return ret;
 }
-#endif
+

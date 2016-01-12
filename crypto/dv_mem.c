@@ -1,6 +1,6 @@
 #include <stdlib.h>
 
-#include "dv_print.h"
+#include "dv_debug.h"
 
 void *
 dv_crypto_malloc(size_t num, const char *file, int line)
@@ -9,7 +9,7 @@ dv_crypto_malloc(size_t num, const char *file, int line)
 
     ptr = malloc(num);
     if (ptr == NULL) {
-        DV_PRINT("Malloc %d failed!(%s %d)\n", (int)num, file, line);
+        DV_DEBUG("Malloc %d failed!(%s %d)\n", (int)num, file, line);
     }
 
     return ptr;
@@ -22,7 +22,7 @@ dv_crypto_calloc(size_t num, const char *file, int line)
 
     ptr = calloc(1, num);
     if (ptr == NULL) {
-        DV_PRINT("Malloc %d failed!(%s %d)\n", (int)num, file, line);
+        DV_DEBUG("Malloc %d failed!(%s %d)\n", (int)num, file, line);
     }
 
     return ptr;

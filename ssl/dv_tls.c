@@ -7,7 +7,7 @@
 #include "dv_lib.h"
 #include "dv_crypto.h"
 #include "dv_errno.h"
-#include "dv_print.h"
+#include "dv_debug.h"
 
 int
 dv_tls_new(dv_ssl_t *s)
@@ -58,7 +58,7 @@ dv_tls_version_check(dv_ssl_t *s, dv_u16 version)
 {
     version = DV_NTOHS(version);
     if (version != DV_TLS1_0_VERSION && version != s->ssl_method->md_version) {
-        DV_PRINT("TLS version(%X) invalid!\n", version);
+        DV_DEBUG("TLS version(%X) invalid!\n", version);
         return DV_ERROR;
     }
 
@@ -102,7 +102,7 @@ dv_tls_parse_record(dv_ssl_t *s, const dv_msg_parse_t *parser, dv_u32 num)
 
         len = DV_NTOHS(rh->rh_length);
         if (len > total_len) {
-            DV_PRINT("Size error!(len is %u, total_len is %u)\n", 
+            DV_DEBUG("Size error!(len is %u, total_len is %u)\n", 
                     len, total_len);
             return DV_ERROR;
         }
@@ -135,7 +135,7 @@ dv_tls_parse_handshake(dv_ssl_t *s, const dv_msg_parse_t *parser, dv_u32 num,
     while (total_len > 0) {
         DV_GET_LENGTH(len, hh->hh_length);
         if (len > total_len) {
-            DV_PRINT("Size error!(len is %u, total_len is %u)\n", 
+            DV_DEBUG("Size error!(len is %u, total_len is %u)\n", 
                     len, total_len);
             return DV_ERROR;
         }

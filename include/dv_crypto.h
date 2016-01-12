@@ -18,6 +18,7 @@ typedef struct _dv_decode_ctx_t {
 extern int dv_b64_decode_block(dv_u8 *t, const dv_u8 *f, int n);
 extern int dv_b64_decode(dv_decode_ctx_t *ctx, void *out, int *outl,
             void *in, int inl);
+extern int dv_pem_decode(void **out, char *buf, int len);
 
 extern void *dv_crypto_malloc(size_t num, const char *file, int line);
 extern void *dv_crypto_calloc(size_t num, const char *file, int line);

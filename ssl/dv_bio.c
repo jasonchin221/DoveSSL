@@ -9,7 +9,7 @@
 #include "dv_types.h"
 #include "dv_ssl.h"
 #include "dv_lib.h"
-#include "dv_print.h"
+#include "dv_debug.h"
 #include "dv_crypto.h"
 
 int
@@ -43,12 +43,12 @@ dv_bio_read_file_linux(const char *file, void **data)
 
     fd = open(file, O_RDONLY);
     if (fd < 0) {
-        DV_PRINT("open %s failed!(%s)\n", file, strerror(errno));
+        DV_DEBUG("open %s failed!(%s)\n", file, strerror(errno));
         return DV_ERROR;
     }
 
     if (fstat(fd, &st) < 0) {
-        DV_PRINT("fstat %s failed!(%s)\n", file, strerror(errno));
+        DV_DEBUG("fstat %s failed!(%s)\n", file, strerror(errno));
         close(fd);
         return DV_ERROR;
     }
@@ -57,7 +57,7 @@ dv_bio_read_file_linux(const char *file, void **data)
 
     *data = dv_malloc(len);
     if (*data == NULL) {
-        DV_PRINT("Malloc failed!\n");
+        DV_DEBUG("Malloc failed!\n");
         close(fd);
         return DV_ERROR;
     }
@@ -66,7 +66,7 @@ dv_bio_read_file_linux(const char *file, void **data)
     if (rlen != len) {
         dv_free(*data);
         *data = NULL;
-        DV_PRINT("Read failed!, rlen = %d(%s)\n", rlen, strerror(errno));
+        DV_DEBUG("Read failed!, rlen = %d(%s)\n", rlen, strerror(errno));
         return DV_ERROR;
     }
 
