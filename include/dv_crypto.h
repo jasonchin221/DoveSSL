@@ -15,6 +15,7 @@ typedef struct _dv_pem_decode_ctx_t {
     int         pd_expect_nl;
 } dv_pem_decode_ctx_t;
 
+extern int dv_b64_decode_block(dv_u8 *t, const dv_u8 *f, int n);
 extern int dv_pem_decode(dv_pem_decode_ctx_t *ctx, void *out, int *outl,
             void *in, int inl);
 

@@ -15,8 +15,8 @@ my $test_dir = 'test';
 #my $std_out_file = "test.log";
 my $curr_dir = getcwd();
 my $test_cmd = $curr_dir."/"."$test_dir/ssl_test";
-my $ca = $curr_dir."/"."$test_dir/pem/cacert.pem";
-my $key = $curr_dir."/"."$test_dir/pem/privkey.pem";
+my $ser_ca = $curr_dir."/"."$test_dir/pem/ser_cacert.pem";
+my $ser_key = $curr_dir."/"."$test_dir/pem/ser_privkey.pem";
 my $port = 445;
 my $cmd_param = "cmd_param";
 my $test_info = "test_info";
@@ -24,19 +24,19 @@ my $cmd_str;
 
 my @testcase = (
     {
-        $cmd_param => "-c $ca -k $key -p $port",
+        $cmd_param => "-c $ser_ca -k $ser_key -p $port",
         $test_info => "DoveSSL--->DoveSSL",
     },
 #    {
-#        $cmd_param => "-c $ca -k $key -p $port -C",
+#        $cmd_param => "-c $ser_ca -k $ser_key -p $port -C",
 #        $test_info => "OpenSSL--->DoveSSL",
 #    },
 #    {
-#        $cmd_param => "-c $ca -k $key -p $port -S",
+#        $cmd_param => "-c $ser_ca -k $ser_key -p $port -S",
 #        $test_info => "DoveSSL--->OpenSSL",
 #    },
     {
-        $cmd_param => "-c $ca -k $key -p $port -C -S",
+        $cmd_param => "-c $ser_ca -k $ser_key -p $port -C -S",
         $test_info => "OpenSSL--->OpenSSL",
     },
 );

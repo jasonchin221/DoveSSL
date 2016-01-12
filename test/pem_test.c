@@ -31,7 +31,7 @@ dv_test_pem_decode(EVP_ENCODE_CTX *ctx, void *out, int *outl, void *in, int inl)
     return len;
 }
 
-#define DV_TEST_PEM_FILE        "test/pem/cacert.pem"
+#define DV_TEST_PEM_FILE        "test/pem/ser_cacert.pem"
 #define DV_PEM_FORMAT_HEADER    "-----BEGIN"
 #define DV_PEM_FORMAT_END       "-----"
 
@@ -105,7 +105,7 @@ int main(void)
         printf("Pem decode result err!\n");
         goto out;
     }
-    printf("Test pem ok!\n");
+    printf("Test pem %s ok!\n", DV_TEST_PEM_FILE);
     ret = 0;
     
 out:
