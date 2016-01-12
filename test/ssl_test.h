@@ -2,6 +2,7 @@
 #define __SSL_TEST_H__
 
 typedef struct _dv_proto_suite_t {
+    int     ps_verify_mode;
     int     (*ps_library_init)(void);
     void    (*ps_add_all_algorithms)(void);
     void    (*ps_load_error_strings)(void);
@@ -19,6 +20,8 @@ typedef struct _dv_proto_suite_t {
     int     (*ps_shutdown)(void *s);
     void    (*ps_ssl_free)(void *s);
     void    (*ps_ctx_free)(void *ctx);
+    void    (*ps_set_verify)(void *s, int mode, 
+            int (*callback)(int ok, void *ctx));
 } dv_proto_suite_t;
 
 #endif

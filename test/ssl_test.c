@@ -46,6 +46,8 @@ static int dv_openssl_write(void *s, const void *buf, int num);
 static int dv_openssl_shutdown(void *s);
 static void dv_openssl_free(void *s);
 static void dv_openssl_ctx_free(void *ctx);
+static void dv_openssl_set_verify(void *s, int mode, 
+        int (*callback)(int ok, void *ctx));
 
 static void *dv_dovessl_ctx_client_new(void);
 static void *dv_dovessl_ctx_server_new(void);
@@ -61,6 +63,8 @@ static int dv_dovessl_write(void *s, const void *buf, int num);
 static int dv_dovessl_shutdown(void *s);
 static void dv_dovessl_free(void *s);
 static void dv_dovessl_ctx_free(void *ctx);
+static void dv_dovessl_set_verify(void *s, int mode, 
+        int (*callback)(int ok, void *ctx));
 
 static const char *
 dv_program_version = "1.0.0";//PACKAGE_STRING;
@@ -89,6 +93,7 @@ dv_options[] = {
 };
 
 static const dv_proto_suite_t dv_openssl_suite = {
+    .ps_verify_mode = SSL_VERIFY_PEER,
     .ps_library_init = SSL_library_init,
     .ps_add_all_algorithms = dv_openssl_add_all_algorighms,
     .ps_load_error_strings = SSL_load_error_strings,
@@ -106,9 +111,11 @@ static const dv_proto_suite_t dv_openssl_suite = {
     .ps_shutdown = dv_openssl_shutdown,
     .ps_ssl_free = dv_openssl_free,
     .ps_ctx_free = dv_openssl_ctx_free,
+    .ps_set_verify = dv_openssl_set_verify,
 };
 
 static const dv_proto_suite_t dv_dovessl_suite = {
+    .ps_verify_mode = DV_SSL_VERIFY_PEER,
     .ps_library_init = dv_library_init,
     .ps_add_all_algorithms = dv_add_all_algorighms,
     .ps_load_error_strings = dv_load_error_strings,
@@ -126,7 +133,14 @@ static const dv_proto_suite_t dv_dovessl_suite = {
     .ps_shutdown = dv_dovessl_shutdown,
     .ps_ssl_free = dv_dovessl_free,
     .ps_ctx_free = dv_dovessl_ctx_free,
+    .ps_set_verify = dv_dovessl_set_verify,
 };
+
+static int
+dv_openssl_callback(int ok, X509_STORE_CTX *ctx)
+{
+    return 1;
+}
 
 /* OpenSSL */
 static void
@@ -239,6 +253,13 @@ dv_openssl_ctx_free(void *ctx)
     SSL_CTX_free(ctx);
 }
 
+static void 
+dv_openssl_set_verify(void *s, int mode, 
+        int (*callback)(int ok, void *ctx))
+{
+    SSL_set_verify(s, mode, dv_openssl_callback);
+}
+
 /* DoveSSL */
 static void *
 dv_dovessl_ctx_client_new(void)
@@ -323,6 +344,13 @@ dv_dovessl_ctx_free(void *ctx)
 {
     dv_ssl_ctx_free(ctx);
 }
+
+static void 
+dv_dovessl_set_verify(void *s, int mode, 
+        int (*callback)(int ok, void *ctx))
+{
+}
+
 
 static void
 dv_add_epoll_event(int epfd, struct epoll_event *ev, int fd)
@@ -425,6 +453,7 @@ dv_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
                     ssl = suite->ps_ssl_new(ctx);
                     /* 将连接用户的 socket 加入到 SSL */
                     suite->ps_set_fd(ssl, new_fd);
+                    suite->ps_set_verify(ssl, suite->ps_verify_mode, NULL);
                     /* 建立 SSL 连接 */
                     if (suite->ps_accept(ssl) == -1) {
                         perror("accept");
@@ -540,6 +569,23 @@ dv_client_main(struct sockaddr_in *dest, char *cf, char *key,
         ERR_print_errors_fp(stdout);
         return DV_ERROR;
     }
+
+    /* 载入用户的数字证书, 此证书用来发送给客户端。 证书里包含有公钥 */
+    if (suite->ps_ctx_use_certificate_file(ctx, cf) < 0) {
+        fprintf(stderr, "Load certificate %s failed!\n", cf);
+        exit(1);
+    }
+    /* 载入用户私钥 */
+    if (suite->ps_ctx_use_privateKey_file(ctx, key) < 0) {
+        fprintf(stderr, "Load private key %s failed!\n", key);
+        exit(1);
+    }
+    /* 检查用户私钥是否正确 */
+    if (suite->ps_ctx_check_private_key(ctx) < 0) {
+        fprintf(stderr, "Check private key failed!\n");
+        exit(1);
+    }
+ 
     /* 创建一个 socket 用于 tcp 通信 */
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
         perror("Socket");
@@ -556,6 +602,7 @@ dv_client_main(struct sockaddr_in *dest, char *cf, char *key,
     /* 基于 ctx 产生一个新的 SSL */
     ssl = suite->ps_ssl_new(ctx);
     suite->ps_set_fd(ssl, sockfd);
+    suite->ps_set_verify(ssl, suite->ps_verify_mode, NULL);
     /* 建立 SSL 连接 */
     if (suite->ps_connect(ssl) == -1) {
         ERR_print_errors_fp(stderr);

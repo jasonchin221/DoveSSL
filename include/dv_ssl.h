@@ -3,6 +3,11 @@
 
 #include "dv_types.h"
 
+#define DV_SSL_VERIFY_NONE                      0x00
+#define DV_SSL_VERIFY_PEER                      0x01
+#define DV_SSL_VERIFY_FAIL_IF_NO_PEER_CERT      0x02
+#define DV_SSL_VERIFY_CLIENT_ONCE               0x04
+
 enum {
     DV_SSL_STATE_INIT,
     DV_SSL_STATE_HELLO,
