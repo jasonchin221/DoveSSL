@@ -93,6 +93,14 @@ dv_ssl_set_fd(dv_ssl_t *s, int fd)
     return DV_OK;
 }
 
+void
+dv_ssl_set_verify(dv_ssl_t *s, dv_u32 mode, 
+        int (*callback)(int ok, dv_x509_t *x509))
+{
+    s->ssl_ca_mode = mode;
+    s->ssl_ca_callback = callback;
+}
+
 int
 dv_ssl_read(dv_ssl_t *s, void *buf, dv_u32 len)
 {

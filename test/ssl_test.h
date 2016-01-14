@@ -20,8 +20,7 @@ typedef struct _dv_proto_suite_t {
     int     (*ps_shutdown)(void *s);
     void    (*ps_ssl_free)(void *s);
     void    (*ps_ctx_free)(void *ctx);
-    void    (*ps_set_verify)(void *s, int mode, 
-            int (*callback)(int ok, void *ctx));
+    void    (*ps_set_verify)(void *s, int mode);
 } dv_proto_suite_t;
 
 #endif

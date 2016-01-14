@@ -46,8 +46,7 @@ static int dv_openssl_write(void *s, const void *buf, int num);
 static int dv_openssl_shutdown(void *s);
 static void dv_openssl_free(void *s);
 static void dv_openssl_ctx_free(void *ctx);
-static void dv_openssl_set_verify(void *s, int mode, 
-        int (*callback)(int ok, void *ctx));
+static void dv_openssl_set_verify(void *s, int mode);
 
 static void *dv_dovessl_ctx_client_new(void);
 static void *dv_dovessl_ctx_server_new(void);
@@ -63,8 +62,7 @@ static int dv_dovessl_write(void *s, const void *buf, int num);
 static int dv_dovessl_shutdown(void *s);
 static void dv_dovessl_free(void *s);
 static void dv_dovessl_ctx_free(void *ctx);
-static void dv_dovessl_set_verify(void *s, int mode, 
-        int (*callback)(int ok, void *ctx));
+static void dv_dovessl_set_verify(void *s, int mode);
 
 static const char *
 dv_program_version = "1.0.0";//PACKAGE_STRING;
@@ -254,8 +252,7 @@ dv_openssl_ctx_free(void *ctx)
 }
 
 static void 
-dv_openssl_set_verify(void *s, int mode, 
-        int (*callback)(int ok, void *ctx))
+dv_openssl_set_verify(void *s, int mode)
 {
     SSL_set_verify(s, mode, dv_openssl_callback);
 }
@@ -345,12 +342,17 @@ dv_dovessl_ctx_free(void *ctx)
     dv_ssl_ctx_free(ctx);
 }
 
-static void 
-dv_dovessl_set_verify(void *s, int mode, 
-        int (*callback)(int ok, void *ctx))
+static int 
+dv_dovessl_verify_callback(int ok, dv_x509_t *x509)
 {
+    return DV_OK;
 }
 
+static void 
+dv_dovessl_set_verify(void *s, int mode)
+{
+    dv_ssl_set_verify(s, mode, dv_dovessl_verify_callback);
+}
 
 static void
 dv_add_epoll_event(int epfd, struct epoll_event *ev, int fd)
@@ -453,7 +455,7 @@ dv_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
                     ssl = suite->ps_ssl_new(ctx);
                     /* 将连接用户的 socket 加入到 SSL */
                     suite->ps_set_fd(ssl, new_fd);
-                    suite->ps_set_verify(ssl, suite->ps_verify_mode, NULL);
+                    suite->ps_set_verify(ssl, suite->ps_verify_mode);
                     /* 建立 SSL 连接 */
                     if (suite->ps_accept(ssl) == -1) {
                         perror("accept");
@@ -602,7 +604,7 @@ dv_client_main(struct sockaddr_in *dest, char *cf, char *key,
     /* 基于 ctx 产生一个新的 SSL */
     ssl = suite->ps_ssl_new(ctx);
     suite->ps_set_fd(ssl, sockfd);
-    suite->ps_set_verify(ssl, suite->ps_verify_mode, NULL);
+    suite->ps_set_verify(ssl, suite->ps_verify_mode);
     /* 建立 SSL 连接 */
     if (suite->ps_connect(ssl) == -1) {
         ERR_print_errors_fp(stderr);

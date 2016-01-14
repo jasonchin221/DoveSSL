@@ -2,6 +2,7 @@
 #define __DV_SSL_H__
 
 #include "dv_types.h"
+#include "dv_x509.h"
 
 #define DV_SSL_VERIFY_NONE                      0x00
 #define DV_SSL_VERIFY_PEER                      0x01
@@ -23,6 +24,8 @@ typedef struct _dv_ssl_t {
     int                             ssl_fd;
     void                            *ssl_ca;
     dv_u32                          ssl_ca_len;
+    dv_u32                          ssl_ca_mode;
+    int                             (*ssl_ca_callback)(int ok, dv_x509_t *x509);
     /* 
      * pointer to handshake message body, set by
      * md_ssl_get_message 
@@ -71,6 +74,8 @@ extern void dv_load_error_strings(void);
 extern int dv_ssl_accept(dv_ssl_t *s);
 extern int dv_ssl_connect(dv_ssl_t *s);
 extern int dv_ssl_set_fd(dv_ssl_t *s, int fd);
+extern void dv_ssl_set_verify(dv_ssl_t *s, dv_u32 mode,
+            int (*callback)(int ok, dv_x509_t *x509));
 extern int dv_ssl_read(dv_ssl_t *s, void *buf, dv_u32 len);
 extern int dv_ssl_write(dv_ssl_t *s, const void *buf, dv_u32 len);
 extern int dv_ssl_shutdown(dv_ssl_t *s);
