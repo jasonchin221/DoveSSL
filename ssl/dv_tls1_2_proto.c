@@ -11,6 +11,7 @@
 
 static int dv_tls1_2_parse_handshake(dv_ssl_t *s, void *buf, dv_u32 len);
 static int dv_tls1_2_parse_client_hello(dv_ssl_t *s, void *buf, dv_u32 len);
+static int dv_tls1_2_parse_server_hello(dv_ssl_t *s, void *buf, dv_u32 len);
 
 static const dv_u16 dv_tls1_2_cipher_suites[] = {
     DV_TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, 
@@ -34,6 +35,10 @@ static const dv_msg_parse_t dv_tls1_2_handshake_parser[] = {
     {
         DV_TLS_HANDSHAKE_TYPE_CLIENT_HELLO,
         dv_tls1_2_parse_client_hello,
+    },
+    {
+        DV_TLS_HANDSHAKE_TYPE_SERVER_HELLO,
+        dv_tls1_2_parse_server_hello,
     },
 };
 
@@ -210,6 +215,9 @@ dv_tls1_2_server_hello(dv_ssl_t *s)
     buf += mlen;
     tlen -= mlen;
 
+    if (s->ssl_ca_mode & DV_SSL_VERIFY_PEER) {
+    }
+
     mlen = dv_tls1_2_set_handshake_header(buf, 
             buf + sizeof(dv_tls_record_header_t), 
             s->ssl_method->md_version,
@@ -256,6 +264,12 @@ dv_tls1_2_parse_client_hello(dv_ssl_t *s, void *buf, dv_u32 len)
         }
     }
 
+    return DV_OK;
+}
+
+static int
+dv_tls1_2_parse_server_hello(dv_ssl_t *s, void *buf, dv_u32 len)
+{
     return DV_OK;
 }
 

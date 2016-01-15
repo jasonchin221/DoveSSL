@@ -78,8 +78,16 @@ dv_tls_bio_connect(dv_ssl_t *s)
                 if (ret != DV_OK) {
                     goto end;
                 }
+
+                ret = s->ssl_method->md_ssl_parse_message(s);
+                if (ret != DV_OK) {
+                    goto end;
+                }
+
                 ret = DV_OK;
                 goto end;
+                break;
+            case DV_SSL_STATE_KEY_EXCHANGE:
                 break;
             default:
                 ret = DV_ERROR;
