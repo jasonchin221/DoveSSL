@@ -254,17 +254,17 @@ dv_openssl_ctx_free(void *ctx)
 static void 
 dv_openssl_set_verify(void *ctx, int mode, char *peer_cf)
 {
-//    STACK_OF(X509_NAME)  *list;
+    STACK_OF(X509_NAME)  *list = NULL;
 
     SSL_CTX_set_verify(ctx, mode, dv_openssl_callback);
 
-//    list = SSL_load_client_CA_file(peer_cf);
-//    if (list == NULL) {
-//        fprintf(stderr, "Load client ca file %s failed\n", peer_cf);
-//        exit(1);
-//    }
+    list = SSL_load_client_CA_file(peer_cf);
+    if (list == NULL) {
+        fprintf(stderr, "Load client ca file %s failed\n", peer_cf);
+        exit(1);
+    }
 
-//    SSL_CTX_set_client_CA_list(ctx, list);
+    SSL_CTX_set_client_CA_list(ctx, list);
 }
 
 /* DoveSSL */
