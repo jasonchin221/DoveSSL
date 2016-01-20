@@ -46,7 +46,7 @@ static int dv_openssl_write(void *s, const void *buf, int num);
 static int dv_openssl_shutdown(void *s);
 static void dv_openssl_free(void *s);
 static void dv_openssl_ctx_free(void *ctx);
-static void dv_openssl_set_verify(void *s, int mode);
+static void dv_openssl_set_verify(void *s, int mode, char *peer_cf);
 
 static void *dv_dovessl_ctx_client_new(void);
 static void *dv_dovessl_ctx_server_new(void);
@@ -62,7 +62,7 @@ static int dv_dovessl_write(void *s, const void *buf, int num);
 static int dv_dovessl_shutdown(void *s);
 static void dv_dovessl_free(void *s);
 static void dv_dovessl_ctx_free(void *ctx);
-static void dv_dovessl_set_verify(void *s, int mode);
+static void dv_dovessl_set_verify(void *s, int mode, char *peer_cf);
 
 static const char *
 dv_program_version = "1.0.0";//PACKAGE_STRING;
@@ -252,9 +252,19 @@ dv_openssl_ctx_free(void *ctx)
 }
 
 static void 
-dv_openssl_set_verify(void *s, int mode)
+dv_openssl_set_verify(void *ctx, int mode, char *peer_cf)
 {
-    SSL_set_verify(s, mode, dv_openssl_callback);
+//    STACK_OF(X509_NAME)  *list;
+
+    SSL_CTX_set_verify(ctx, mode, dv_openssl_callback);
+
+//    list = SSL_load_client_CA_file(peer_cf);
+//    if (list == NULL) {
+//        fprintf(stderr, "Load client ca file %s failed\n", peer_cf);
+//        exit(1);
+//    }
+
+//    SSL_CTX_set_client_CA_list(ctx, list);
 }
 
 /* DoveSSL */
@@ -342,16 +352,9 @@ dv_dovessl_ctx_free(void *ctx)
     dv_ssl_ctx_free(ctx);
 }
 
-static int 
-dv_dovessl_verify_callback(int ok, dv_x509_t *x509)
-{
-    return DV_OK;
-}
-
 static void 
-dv_dovessl_set_verify(void *s, int mode)
+dv_dovessl_set_verify(void *s, int mode, char *peer_cf)
 {
-    dv_ssl_set_verify(s, mode, dv_dovessl_verify_callback);
 }
 
 static void
@@ -364,7 +367,7 @@ dv_add_epoll_event(int epfd, struct epoll_event *ev, int fd)
 
 static int
 dv_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
-        char *key, const dv_proto_suite_t *suite)
+        char *key, const dv_proto_suite_t *suite, char *peer_cf)
 {
     struct epoll_event  ev = {};
     struct epoll_event  events[DV_TEST_EVENT_MAX_NUM] = {};
@@ -410,6 +413,7 @@ dv_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
         fprintf(stderr, "Check private key failed!\n");
         exit(1);
     }
+    suite->ps_set_verify(ctx, suite->ps_verify_mode, peer_cf);
     /* 开启一个 socket 监听 */
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("socket");
@@ -455,7 +459,6 @@ dv_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
                     ssl = suite->ps_ssl_new(ctx);
                     /* 将连接用户的 socket 加入到 SSL */
                     suite->ps_set_fd(ssl, new_fd);
-                    suite->ps_set_verify(ssl, suite->ps_verify_mode);
                     /* 建立 SSL 连接 */
                     if (suite->ps_accept(ssl) == -1) {
                         perror("accept");
@@ -527,9 +530,9 @@ out:
 
 static int
 dv_server(int pipefd, struct sockaddr_in *addr, char *cf,
-        char *key, const dv_proto_suite_t *suite)
+        char *key, const dv_proto_suite_t *suite, char *peer_cf)
 {
-    return dv_server_main(pipefd, addr, cf, key, suite);
+    return dv_server_main(pipefd, addr, cf, key, suite, peer_cf);
 }
 
 #if 0
@@ -554,7 +557,7 @@ void ShowCerts(SSL * ssl)
 
 static int 
 dv_client_main(struct sockaddr_in *dest, char *cf, char *key,
-        const dv_proto_suite_t *suite)
+        const dv_proto_suite_t *suite, char *peer_cf)
 {
     int         sockfd = 0;
     int         len = 0;
@@ -604,7 +607,7 @@ dv_client_main(struct sockaddr_in *dest, char *cf, char *key,
     /* 基于 ctx 产生一个新的 SSL */
     ssl = suite->ps_ssl_new(ctx);
     suite->ps_set_fd(ssl, sockfd);
-    suite->ps_set_verify(ssl, suite->ps_verify_mode);
+    suite->ps_set_verify(ctx, suite->ps_verify_mode, peer_cf);
     /* 建立 SSL 连接 */
     if (suite->ps_connect(ssl) == -1) {
         ERR_print_errors_fp(stderr);
@@ -644,7 +647,7 @@ dv_client_main(struct sockaddr_in *dest, char *cf, char *key,
 
 static int
 dv_client(int pipefd, struct sockaddr_in *addr, char *cf, 
-        char *key, const dv_proto_suite_t *suite)
+        char *key, const dv_proto_suite_t *suite, char *peer_cf)
 {
     char                buf[DV_BUF_MAX_LEN] = {};
     ssize_t             rlen = 0;
@@ -661,7 +664,7 @@ dv_client(int pipefd, struct sockaddr_in *addr, char *cf,
         fprintf(stderr, "Read from pipefd failed(errno=%s)\n", strerror(errno));
         return DV_ERROR;
     }
-    ret = dv_client_main(addr, cf, key, suite);
+    ret = dv_client_main(addr, cf, key, suite, peer_cf);
     if (ret != DV_OK) {
         close(pipefd);
         return DV_ERROR;
@@ -795,10 +798,11 @@ main(int argc, char **argv)
 
     if (pid > 0) {  /* Parent */
         close(fd[0]);
-        return -dv_client(fd[1], &addr, client_cf, client_key, client_suite);
+        return -dv_client(fd[1], &addr, client_cf, client_key, 
+                client_suite, cf);
     }
 
     /* Child */
     close(fd[1]);
-    return -dv_server(fd[0], &addr, cf, key, server_suite);
+    return -dv_server(fd[0], &addr, cf, key, server_suite, client_cf);
 }

@@ -8,10 +8,29 @@
 #include "dv_debug.h"
 #include "dv_tls1_2_proto.h"
 #include "dv_assert.h"
+#include "dv_cert.h"
 
 static int dv_tls1_2_parse_handshake(dv_ssl_t *s, void *buf, dv_u32 len);
 static int dv_tls1_2_parse_client_hello(dv_ssl_t *s, void *buf, dv_u32 len);
 static int dv_tls1_2_parse_server_hello(dv_ssl_t *s, void *buf, dv_u32 len);
+
+static dv_u8 dv_cert_type[] = {
+    DV_CERT_RSA_SIGN,
+    DV_CERT_DSS_SIGN,
+    DV_CERT_ECDSA_SIGN,
+};
+
+static dv_u8 dv_cert_hash[] = {
+    DV_CERT_HASH_ALGORITHM_SHA512,
+    DV_CERT_HASH_ALGORITHM_SHA384,
+    DV_CERT_HASH_ALGORITHM_SHA256,
+};
+
+static dv_u8 dv_cert_sign[] = {
+    DV_CERT_SIGN_ALGORITHM_RSA_SIGN,
+    DV_CERT_SIGN_ALGORITHM_DSA_SIGN,
+    DV_CERT_SIGN_ALGORITHM_ECDSA_SIGN,
+};
 
 static const dv_u16 dv_tls1_2_cipher_suites[] = {
     DV_TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384, 
@@ -63,7 +82,7 @@ static const dv_msg_parse_t dv_tls1_2_handshake_parser[] = {
 static dv_u16
 dv_tls1_2_set_handshake_header(dv_tls_record_header_t *rh, 
         dv_tls_handshake_header_t *hh, dv_u16 version,
-        dv_u8 type, dv_u32 hlen)
+        dv_u8 type, dv_u32 hlen, dv_u16 offset)
 {
     dv_u16      tlen = 0;
 
@@ -72,7 +91,7 @@ dv_tls1_2_set_handshake_header(dv_tls_record_header_t *rh,
     
     rh->rh_content_type = DV_TLS_CONTENT_TYPE_HANDSHAKE;
     rh->rh_version.pv_version = DV_HTONS(version);
-    tlen = sizeof(*hh) + hlen;
+    tlen = sizeof(*hh) + hlen + offset;
     rh->rh_length = DV_HTONS(tlen);
 
     return tlen + sizeof(*rh);
@@ -115,7 +134,7 @@ dv_tls1_2_client_hello(dv_ssl_t *s)
 
 
     tlen = dv_tls1_2_set_handshake_header(rh, hh, DV_TLS1_0_VERSION,
-        DV_TLS_HANDSHAKE_TYPE_CLIENT_HELLO, hlen);
+        DV_TLS_HANDSHAKE_TYPE_CLIENT_HELLO, hlen, 0);
 
     dv_assert(tlen <= len);
 
@@ -148,7 +167,7 @@ _dv_tls1_2_server_hello(dv_ssl_t *s, void *buf, int len)
     hlen += sizeof(*sh);
 
     mlen = dv_tls1_2_set_handshake_header(rh, hh, s->ssl_method->md_version,
-        DV_TLS_HANDSHAKE_TYPE_SERVER_HELLO, hlen);
+        DV_TLS_HANDSHAKE_TYPE_SERVER_HELLO, hlen, 0);
 
     dv_assert(mlen <= len);
     
@@ -184,13 +203,51 @@ dv_tls1_2_certificate(dv_ssl_t *s, void *buf, int len)
     dv_certificate_set_header(ca, clen, tlen);
 
     mlen = dv_tls1_2_set_handshake_header(rh, hh, s->ssl_method->md_version,
-        DV_TLS_HANDSHAKE_TYPE_CERTIFICATE, tlen);
+        DV_TLS_HANDSHAKE_TYPE_CERTIFICATE, tlen, 0);
 
     dv_assert(mlen <= len);
     
     return mlen;
 }
 
+static int
+dv_tls1_2_certificate_request(dv_ssl_t *s, void *buf, int len)
+{
+    dv_tls_handshake_header_t   *hh = NULL;
+    dv_u8                       *type_count = NULL;
+    dv_u8                       *d = NULL;
+    dv_u16                      *a_len = NULL;
+    dv_u16                      *d_len = NULL;
+    int                         i = 0;
+    int                         j = 0;
+    int                         tlen = 0;
+
+    hh = buf;
+    type_count = (dv_u8 *)(hh + 1);
+    tlen += sizeof(*hh);
+    *type_count = DV_ARRAY_SIZE(dv_cert_type);
+    memcpy(type_count + 1, dv_cert_type, *type_count);
+    tlen += *type_count + sizeof(*type_count);
+    a_len = buf + tlen;
+    tlen += sizeof(*a_len);
+    d = buf + tlen;
+    for (i = 0; i < DV_ARRAY_SIZE(dv_cert_hash); i++) {
+        for (j = 0; j < DV_ARRAY_SIZE(dv_cert_sign); j++) {
+            *d++ = dv_cert_hash[i];
+            *d++ = dv_cert_sign[j];
+        }
+    }
+    *a_len = d - (dv_u8 *)buf - tlen;
+    tlen += *a_len; 
+    *a_len = DV_HTONS(*a_len);
+    d_len = buf + tlen;
+    *d_len = 0;
+    tlen += sizeof(*d_len);
+    hh->hh_msg_type = DV_TLS_HANDSHAKE_TYPE_CERTIFICATE_REQUEST;
+    DV_SET_LENGTH(hh->hh_length, tlen - sizeof(*hh));
+
+    return tlen;
+}
 
 int
 dv_tls1_2_server_hello(dv_ssl_t *s)
@@ -215,13 +272,16 @@ dv_tls1_2_server_hello(dv_ssl_t *s)
     buf += mlen;
     tlen -= mlen;
 
-    if (s->ssl_ca_mode & DV_SSL_VERIFY_PEER) {
+    mlen = dv_tls1_2_certificate_request(s, buf + 
+            sizeof(dv_tls_record_header_t), tlen);
+    if (mlen < 0) {
+        return DV_ERROR;
     }
 
     mlen = dv_tls1_2_set_handshake_header(buf, 
-            buf + sizeof(dv_tls_record_header_t), 
+            buf + sizeof(dv_tls_record_header_t) + mlen,
             s->ssl_method->md_version,
-            DV_TLS_HANDSHAKE_TYPE_SERVER_HELLO_DONE, 0);
+            DV_TLS_HANDSHAKE_TYPE_SERVER_HELLO_DONE, 0, mlen);
 
     dv_assert(mlen <= tlen);
     
