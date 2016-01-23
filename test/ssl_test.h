@@ -21,6 +21,7 @@ typedef struct _dv_proto_suite_t {
     void    (*ps_ssl_free)(void *s);
     void    (*ps_ctx_free)(void *ctx);
     void    (*ps_set_verify)(void *s, int mode, char *peer_cf);
+    int     (*ps_get_verify_result)(void *s);
 } dv_proto_suite_t;
 
 #endif

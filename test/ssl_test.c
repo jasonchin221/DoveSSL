@@ -47,6 +47,7 @@ static int dv_openssl_shutdown(void *s);
 static void dv_openssl_free(void *s);
 static void dv_openssl_ctx_free(void *ctx);
 static void dv_openssl_set_verify(void *s, int mode, char *peer_cf);
+static int dv_openssl_get_verify_result(void *s);
 
 static void *dv_dovessl_ctx_client_new(void);
 static void *dv_dovessl_ctx_server_new(void);
@@ -63,6 +64,7 @@ static int dv_dovessl_shutdown(void *s);
 static void dv_dovessl_free(void *s);
 static void dv_dovessl_ctx_free(void *ctx);
 static void dv_dovessl_set_verify(void *s, int mode, char *peer_cf);
+static int dv_dovessl_get_verify_result(void *s);
 
 static const char *
 dv_program_version = "1.0.0";//PACKAGE_STRING;
@@ -110,6 +112,7 @@ static const dv_proto_suite_t dv_openssl_suite = {
     .ps_ssl_free = dv_openssl_free,
     .ps_ctx_free = dv_openssl_ctx_free,
     .ps_set_verify = dv_openssl_set_verify,
+    .ps_get_verify_result = dv_openssl_get_verify_result,
 };
 
 static const dv_proto_suite_t dv_dovessl_suite = {
@@ -132,6 +135,7 @@ static const dv_proto_suite_t dv_dovessl_suite = {
     .ps_ssl_free = dv_dovessl_free,
     .ps_ctx_free = dv_dovessl_ctx_free,
     .ps_set_verify = dv_dovessl_set_verify,
+    .ps_get_verify_result = dv_dovessl_get_verify_result,
 };
 
 static int
@@ -257,7 +261,13 @@ dv_openssl_set_verify(void *ctx, int mode, char *peer_cf)
     STACK_OF(X509_NAME)  *list = NULL;
 
     SSL_CTX_set_verify(ctx, mode, dv_openssl_callback);
+    SSL_CTX_set_verify_depth(ctx, 1);
 
+    if (SSL_CTX_load_verify_locations(ctx, peer_cf, NULL) == 0) {
+        fprintf(stderr, "Load verify locations %s failed\n", peer_cf);
+        exit(1);
+    }
+    
     list = SSL_load_client_CA_file(peer_cf);
     if (list == NULL) {
         fprintf(stderr, "Load client ca file %s failed\n", peer_cf);
@@ -265,6 +275,20 @@ dv_openssl_set_verify(void *ctx, int mode, char *peer_cf)
     }
 
     SSL_CTX_set_client_CA_list(ctx, list);
+}
+
+static int
+dv_openssl_get_verify_result(void *s)
+{
+    long    ret = 0;
+
+    ret = SSL_get_verify_result(s);
+    if (ret != X509_V_OK) {
+        fprintf(stderr, "Verify ret is %ld\n", ret);
+        return DV_ERROR;
+    }
+
+    return DV_OK;
 }
 
 /* DoveSSL */
@@ -355,6 +379,12 @@ dv_dovessl_ctx_free(void *ctx)
 static void 
 dv_dovessl_set_verify(void *s, int mode, char *peer_cf)
 {
+}
+
+static int
+dv_dovessl_get_verify_result(void *s)
+{
+    return DV_OK;
 }
 
 static void
@@ -464,6 +494,10 @@ dv_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
                         perror("accept");
                         close(new_fd);
                         goto out;
+                    }
+                    if (suite->ps_get_verify_result(ssl) != DV_OK) {
+                        printf("Client cert verify failed!\n");
+                        exit(1);
                     }
                     /* 开始处理每个新连接上的数据收发 */
                     bzero(buf, sizeof(buf));
@@ -604,16 +638,21 @@ dv_client_main(struct sockaddr_in *dest, char *cf, char *key,
         exit(errno);
     }
     printf("server connected\n");
+    suite->ps_set_verify(ctx, suite->ps_verify_mode, peer_cf);
     /* 基于 ctx 产生一个新的 SSL */
     ssl = suite->ps_ssl_new(ctx);
     suite->ps_set_fd(ssl, sockfd);
-    suite->ps_set_verify(ctx, suite->ps_verify_mode, peer_cf);
     /* 建立 SSL 连接 */
     if (suite->ps_connect(ssl) == -1) {
         ERR_print_errors_fp(stderr);
     } else {
         //printf("Connected with %s encryption\n", SSL_get_cipher(ssl));
         //ShowCerts(ssl);
+    }
+
+    if (suite->ps_get_verify_result(ssl) != DV_OK) {
+        printf("Server cert verify failed!\n");
+        exit(1);
     }
     /* 发消息给服务器 */
     len = suite->ps_write(ssl, DV_TEST_REQ, sizeof(DV_TEST_REQ));
@@ -654,6 +693,7 @@ dv_client(int pipefd, struct sockaddr_in *addr, char *cf,
     ssize_t             wlen = 0;
     int                 ret = 0;
 
+    printf("client====\n");
     wlen = write(pipefd, DV_TEST_CMD_START, strlen(DV_TEST_CMD_START));
     if (wlen < strlen(DV_TEST_CMD_START)) {
         fprintf(stderr, "Write to pipefd failed(errno=%s)\n", strerror(errno));
