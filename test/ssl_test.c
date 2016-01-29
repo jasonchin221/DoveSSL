@@ -22,6 +22,7 @@
 
 #define DV_DEF_IP_ADDRESS       "127.0.0.1"
 #define DV_DEF_PORT             "7838"
+#define DV_DEF_SERVER_CIPHERS   "ECDHE-RSA-AES128-GCM-SHA256"
 #define DV_SERVER_LISTEN_NUM    5
 #define DV_TEST_REQ             "Hello TLS!"
 #define DV_TEST_RESP            "TLS OK!"
@@ -37,6 +38,7 @@ static void *dv_openssl_ctx_server_new(void);
 static int dv_openssl_ctx_use_certificate_file(void *ctx, const char *file);
 static int dv_openssl_ctx_use_privateKey_file(void *ctx, const char *file);
 static int dv_openssl_ctx_check_private_key(const void *ctx);
+static int dv_openssl_ctx_set_ciphers(void *ctx);
 static void *dv_openssl_new(void *ctx);
 static int dv_openssl_set_fd(void *s, int fd);
 static int dv_openssl_accept(void *s);
@@ -54,6 +56,7 @@ static void *dv_dovessl_ctx_server_new(void);
 static int dv_dovessl_ctx_use_certificate_file(void *ctx, const char *file);
 static int dv_dovessl_ctx_use_privateKey_file(void *ctx, const char *file);
 static int dv_dovessl_ctx_check_private_key(const void *ctx);
+static int dv_dovessl_ctx_set_ciphers(void *ctx);
 static void *dv_dovessl_new(void *ctx);
 static int dv_dovessl_set_fd(void *s, int fd);
 static int dv_dovessl_accept(void *s);
@@ -102,6 +105,7 @@ static const dv_proto_suite_t dv_openssl_suite = {
     .ps_ctx_use_certificate_file = dv_openssl_ctx_use_certificate_file,
     .ps_ctx_use_privateKey_file = dv_openssl_ctx_use_privateKey_file,
     .ps_ctx_check_private_key = dv_openssl_ctx_check_private_key,
+    .ps_ctx_set_ciphers = dv_openssl_ctx_set_ciphers,
     .ps_ssl_new = dv_openssl_new,
     .ps_set_fd = dv_openssl_set_fd,
     .ps_accept = dv_openssl_accept,
@@ -125,6 +129,7 @@ static const dv_proto_suite_t dv_dovessl_suite = {
     .ps_ctx_use_certificate_file = dv_dovessl_ctx_use_certificate_file,
     .ps_ctx_use_privateKey_file = dv_dovessl_ctx_use_privateKey_file,
     .ps_ctx_check_private_key = dv_dovessl_ctx_check_private_key,
+    .ps_ctx_set_ciphers = dv_dovessl_ctx_set_ciphers,
     .ps_ssl_new = dv_dovessl_new,
     .ps_set_fd = dv_dovessl_set_fd,
     .ps_accept = dv_dovessl_accept,
@@ -185,6 +190,46 @@ dv_openssl_ctx_use_privateKey_file(void *ctx, const char *file)
     if (ret <= 0) {
         return DV_ERROR;
     }
+
+    return DV_OK;
+}
+
+static int 
+dv_openssl_ctx_set_ciphers(void *ctx)
+{    
+    int      nid = 0;
+    EC_KEY  *ecdh = NULL;
+    char    *name = "prime256v1";
+
+    if (SSL_CTX_set_cipher_list(ctx, DV_DEF_SERVER_CIPHERS) == 0) {
+        printf("Set cipher %s\n", DV_DEF_SERVER_CIPHERS);
+        return DV_ERROR;
+    }
+
+    /*
+     * Elliptic-Curve Diffie-Hellman parameters are either "named curves"
+     * from RFC 4492 section 5.1.1, or explicitly described curves over
+     * binary fields. OpenSSL only supports the "named curves", which provide
+     * maximum interoperability.
+     */
+
+    nid = OBJ_sn2nid((const char *)name);
+    if (nid == 0) {
+        printf("Nid error!\n");
+        return DV_ERROR;
+    }
+
+    ecdh = EC_KEY_new_by_curve_name(nid);
+    if (ecdh == NULL) {
+        printf("Unable to create curve \"%s\"", name);
+        return DV_ERROR;
+    }
+
+    SSL_CTX_set_options(ctx, SSL_OP_SINGLE_ECDH_USE);
+
+    SSL_CTX_set_tmp_ecdh(ctx, ecdh);
+
+    EC_KEY_free(ecdh);
 
     return DV_OK;
 }
@@ -317,6 +362,12 @@ dv_dovessl_ctx_use_privateKey_file(void *ctx, const char *file)
 }
 
 static int
+dv_dovessl_ctx_set_ciphers(void *ctx)
+{
+    return DV_OK;
+}
+
+static int
 dv_dovessl_ctx_check_private_key(const void *ctx)
 {
     return dv_ssl_ctx_check_private_key(ctx);
@@ -444,6 +495,10 @@ dv_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
         exit(1);
     }
     suite->ps_set_verify(ctx, suite->ps_verify_mode, peer_cf);
+    if (suite->ps_ctx_set_ciphers(ctx) != DV_OK) {
+        fprintf(stderr, "Set cipher failed!\n");
+        exit(1);
+    }
     /* 开启一个 socket 监听 */
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
         perror("socket");

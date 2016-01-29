@@ -11,6 +11,7 @@ typedef struct _dv_proto_suite_t {
     int     (*ps_ctx_use_certificate_file)(void *ctx, const char *file);
     int     (*ps_ctx_use_privateKey_file)(void *ctx, const char *file);
     int     (*ps_ctx_check_private_key)(const void *ctx);
+    int     (*ps_ctx_set_ciphers)(void *ctx);
     void    *(*ps_ssl_new)(void *ctx);
     int     (*ps_set_fd)(void *s, int fd);
     int     (*ps_accept)(void *s);

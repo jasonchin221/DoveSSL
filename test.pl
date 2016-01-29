@@ -21,7 +21,7 @@ my $cli_ca = $curr_dir."/"."$test_dir/pem/cli_cacert.pem";
 my $cli_key = $curr_dir."/"."$test_dir/pem/cli_privkey.pem";
 my $ca = "$ser_ca,$cli_ca";
 my $key = "$ser_key,$cli_key";
-my $port = 445;
+my $port = 446;
 my $cmd_param = "cmd_param";
 my $test_info = "test_info";
 my $cmd_str;
