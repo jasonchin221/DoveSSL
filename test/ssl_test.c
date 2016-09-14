@@ -447,7 +447,7 @@ dv_add_epoll_event(int epfd, struct epoll_event *ev, int fd)
 }
 
 static int
-dv_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
+dv_ssl_server_main(int pipefd, struct sockaddr_in *my_addr, char *cf,
         char *key, const dv_proto_suite_t *suite, char *peer_cf)
 {
     struct epoll_event  ev = {};
@@ -618,10 +618,10 @@ out:
 }
 
 static int
-dv_server(int pipefd, struct sockaddr_in *addr, char *cf,
+dv_ssl_server(int pipefd, struct sockaddr_in *addr, char *cf,
         char *key, const dv_proto_suite_t *suite, char *peer_cf)
 {
-    return dv_server_main(pipefd, addr, cf, key, suite, peer_cf);
+    return dv_ssl_server_main(pipefd, addr, cf, key, suite, peer_cf);
 }
 
 #if 0
@@ -645,7 +645,7 @@ void ShowCerts(SSL * ssl)
 #endif
 
 static int 
-dv_client_main(struct sockaddr_in *dest, char *cf, char *key,
+dv_ssl_client_main(struct sockaddr_in *dest, char *cf, char *key,
         const dv_proto_suite_t *suite, char *peer_cf)
 {
     int         sockfd = 0;
@@ -740,7 +740,7 @@ dv_client_main(struct sockaddr_in *dest, char *cf, char *key,
 }
 
 static int
-dv_client(int pipefd, struct sockaddr_in *addr, char *cf, 
+dv_ssl_client(int pipefd, struct sockaddr_in *addr, char *cf, 
         char *key, const dv_proto_suite_t *suite, char *peer_cf)
 {
     char                buf[DV_BUF_MAX_LEN] = {};
@@ -748,7 +748,6 @@ dv_client(int pipefd, struct sockaddr_in *addr, char *cf,
     ssize_t             wlen = 0;
     int                 ret = 0;
 
-    printf("client====\n");
     wlen = write(pipefd, DV_TEST_CMD_START, strlen(DV_TEST_CMD_START));
     if (wlen < strlen(DV_TEST_CMD_START)) {
         fprintf(stderr, "Write to pipefd failed(errno=%s)\n", strerror(errno));
@@ -759,13 +758,13 @@ dv_client(int pipefd, struct sockaddr_in *addr, char *cf,
         fprintf(stderr, "Read from pipefd failed(errno=%s)\n", strerror(errno));
         return DV_ERROR;
     }
-    ret = dv_client_main(addr, cf, key, suite, peer_cf);
+    ret = dv_ssl_client_main(addr, cf, key, suite, peer_cf);
     if (ret != DV_OK) {
         close(pipefd);
         return DV_ERROR;
     }
 
-    wlen = write(pipefd, DV_TEST_CMD_START, strlen(DV_TEST_CMD_END));
+    wlen = write(pipefd, DV_TEST_CMD_END, strlen(DV_TEST_CMD_END));
     if (wlen < strlen(DV_TEST_CMD_END)) {
         fprintf(stderr, "Write to pipefd failed(errno=%s), wlen = %d\n",
                 strerror(errno), (int)wlen);
@@ -811,7 +810,7 @@ main(int argc, char **argv)
     const dv_proto_suite_t  *client_suite = &dv_dovessl_suite;
     const dv_proto_suite_t  *server_suite = &dv_dovessl_suite;
     char                    *ip = DV_DEF_IP_ADDRESS;
-    char                    *port = DV_DEF_IP_ADDRESS;
+    char                    *port = DV_DEF_PORT;
     char                    *cf = NULL;
     char                    *key = NULL;
     char                    *client_cf = NULL;
@@ -893,11 +892,11 @@ main(int argc, char **argv)
 
     if (pid > 0) {  /* Parent */
         close(fd[0]);
-        return -dv_client(fd[1], &addr, client_cf, client_key, 
+        return -dv_ssl_client(fd[1], &addr, client_cf, client_key, 
                 client_suite, cf);
     }
 
     /* Child */
     close(fd[1]);
-    return -dv_server(fd[0], &addr, cf, key, server_suite, client_cf);
+    return -dv_ssl_server(fd[0], &addr, cf, key, server_suite, client_cf);
 }
