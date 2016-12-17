@@ -103,7 +103,7 @@ fi
 
 AC_CONFIG_FILES([
 				 Makefile
-				 ssl/Makefile
+				 tls/Makefile
 				 crypto/Makefile
 				 test/Makefile
 				 ])
